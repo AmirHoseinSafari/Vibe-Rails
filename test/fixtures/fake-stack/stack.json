@@ -1,0 +1,8 @@
+{
+  "name": "fake",
+  "description": "Test double: 'runs' the tests listed in tests.json.",
+  "nodeMajor": 20,
+  "commands": { "install": "", "test": "node run-tests.cjs", "dev": "echo dev" },
+  "report": { "format": "jest-json", "file": ".vibe-rails/tmp/report.json" },
+  "testMatch": "\\.test\\."
+}

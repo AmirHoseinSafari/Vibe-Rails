@@ -1,0 +1,37 @@
+{
+  "name": "vibe-rails",
+  "version": "0.1.0",
+  "description": "Guard rails for vibe coding: a plain-language interview, a tested scope, and a hard test gate before every save.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AmirHoseinSafari/Vibe-Rails.git"
+  },
+  "bin": {
+    "vibe-rails": "bin/vibe-rails"
+  },
+  "files": [
+    "bin",
+    "src",
+    "templates",
+    "skills",
+    "hooks",
+    ".claude-plugin"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "setup": "git config core.hooksPath .githooks",
+    "prepare": "git config core.hooksPath .githooks || true"
+  },
+  "keywords": [
+    "vibe-coding",
+    "claude-code",
+    "claude-code-plugin",
+    "tdd",
+    "spec-driven-development"
+  ]
+}

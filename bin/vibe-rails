@@ -1,0 +1,19 @@
+#!/bin/sh
+# Thin launcher: finds Node, then hands over to the real tool in src/cli.js.
+self="$0"
+while [ -L "$self" ]; do
+  link=$(readlink "$self")
+  case "$link" in
+    /*) self="$link" ;;
+    *) self="$(dirname "$self")/$link" ;;
+  esac
+done
+root="$(cd "$(dirname "$self")/.." && pwd)"
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "Vibe Rails needs Node.js, and it is not installed on this computer." >&2
+  echo "Install the LTS version from https://nodejs.org, then restart Claude and try again." >&2
+  exit 127
+fi
+
+VIBE_RAILS_BIN="$root/bin/vibe-rails" exec node "$root/src/cli.js" "$@"

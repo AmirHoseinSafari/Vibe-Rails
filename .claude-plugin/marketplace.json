@@ -1,0 +1,12 @@
+{
+  "name": "vibe-rails",
+  "description": "Guard rails for vibe coding.",
+  "owner": { "name": "AmirHoseinSafari" },
+  "plugins": [
+    {
+      "name": "vibe-rails",
+      "source": "./",
+      "description": "A plain-language interview, a tested scope, and a hard test gate before every save."
+    }
+  ]
+}

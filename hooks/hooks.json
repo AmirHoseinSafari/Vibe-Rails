@@ -1,0 +1,20 @@
+{
+  "description": "Vibe Rails: keeps the AI on the agreed process. Does nothing outside Vibe Rails projects.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/vibe-rails\" hook session-start", "timeout": 10 }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/vibe-rails\" hook pre-tool-use", "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}
