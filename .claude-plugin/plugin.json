@@ -1,0 +1,10 @@
+{
+  "name": "vibe-rails",
+  "version": "0.1.0",
+  "description": "Guard rails for vibe coding. A plain-language interview, a scope where every promise has a test, and a gate that blocks saving until the tests pass.",
+  "author": { "name": "AmirHoseinSafari" },
+  "homepage": "https://github.com/AmirHoseinSafari/Vibe-Rails",
+  "repository": "https://github.com/AmirHoseinSafari/Vibe-Rails",
+  "license": "MIT",
+  "keywords": ["vibe-coding", "tdd", "non-technical", "workflow"]
+}

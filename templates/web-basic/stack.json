@@ -1,0 +1,12 @@
+{
+  "name": "web-basic",
+  "description": "A web app that runs in the browser: React + TypeScript + Vite, tested with Vitest. Data is kept in the browser.",
+  "nodeMajor": 22,
+  "commands": {
+    "install": "npm install --no-audit --no-fund",
+    "test": "npx vitest run --reporter=json --outputFile=.vibe-rails/tmp/report.json",
+    "dev": "npm run dev"
+  },
+  "report": { "format": "jest-json", "file": ".vibe-rails/tmp/report.json" },
+  "testMatch": "\\.test\\.[jt]sx?$"
+}

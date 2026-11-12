@@ -1,0 +1,10 @@
+#!/bin/sh
+# Test pipeline, local half: no commit unless the whole test suite passes.
+# Switched on by `npm run setup` (git config core.hooksPath .githooks).
+echo "Running tests before commit..."
+if ! output=$(npm test 2>&1); then
+  echo "$output" | grep -E '^(not ok|# (tests|pass|fail))' >&2
+  echo "Commit blocked: tests are failing. Run 'npm test' for details." >&2
+  exit 1
+fi
+echo "$output" | grep -E '^# (tests|pass)'
