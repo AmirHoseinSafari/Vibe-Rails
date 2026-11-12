@@ -3,7 +3,7 @@
 ## Needs the owner (do these first)
 
 - [ ] **Register the GitHub OAuth app** and put its Client ID in `src/lib/github.js` ([GITHUB_APP.md](GITHUB_APP.md)). Until then `vibe-rails connect` only gives manual steps. The sign-in flow is tested against a fake GitHub, never against the real one.
-- [ ] **One live session.** `claude plugin validate .` passes (2.1.322; warnings only: no icon, and CLAUDE.md is not shipped as plugin context, which is intended). The hook commands are tested the way Claude Code runs them. Not yet seen in a real session: skills triggering from plain requests, `vibe-rails` on the Bash PATH, hook refusals shown to the model. Run `claude --plugin-dir .` in an empty folder and say "I want to build an app".
+- [x] **One live session** (done 2026-11-11, headless; results in [TODO.md](../TODO.md)). Still worth one run by hand in the desktop app.
 - [ ] Run a full project with a real non-technical user and note where the interview, mock-up or build loop confuses them.
 
 ## Next

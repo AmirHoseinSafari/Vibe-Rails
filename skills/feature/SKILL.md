@@ -16,7 +16,7 @@ The user is not technical. Ask only about what they want to see and do, never ab
    - Write the code until the test passes.
    - Run `vibe-rails save "<what changed, in plain words>" --for S7`.
 5. If the save is blocked, read the short reason, fix the cause, and save again. Do not weaken or delete tests to get through.
-6. Tell the user in one or two sentences what now works, start the preview (`npm run dev`) and tell them what to click. When they say it works, run `vibe-rails confirm S7`. If it is not what they meant, treat that as a bug.
+6. Tell the user in one or two sentences what now works, run `vibe-rails preview`, open the address it prints for them, and tell them what to click. When they say it works, run `vibe-rails confirm S7`. If it is not what they meant, treat that as a bug.
 7. If things went wrong and the user wants the old version back, `vibe-rails undo` returns to the last save. Ask first.
 
 If the request conflicts with an existing promise, tell the user which one, and agree whether to reword it (`vibe-rails scope edit`) or remove it (`vibe-rails scope drop <id> "<reason>"`) before building.

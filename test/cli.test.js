@@ -410,16 +410,17 @@ test('connect: signs in with a code, creates a private repository and uploads', 
   const gh = await fakeGitHub(t);
   const dir = approvedProject();
 
-  const first = await runAsync(dir, ['connect'], gh.env);
+  const first = await runAsync(dir, ['connect', '--auto'], gh.env);
   assert.equal(first.code, 0, first.out);
   assert.match(first.out, /Open https:\/\/github\.com\/login\/device/);
   assert.match(first.out, /Type this code: WDJB-MJHT/);
+  assert.match(first.out, /full control of private repositories/, 'the permission is stated before the user authorises');
 
-  const waiting = await runAsync(dir, ['connect'], gh.env);
+  const waiting = await runAsync(dir, ['connect', '--auto'], gh.env);
   assert.match(waiting.out, /Still waiting for the user to type the code WDJB-MJHT/);
 
   gh.world.authorized = true;
-  const done = await runAsync(dir, ['connect'], gh.env);
+  const done = await runAsync(dir, ['connect', '--auto'], gh.env);
   assert.equal(done.code, 0, done.out);
   assert.match(done.out, /Backed up on GitHub, visible only to the user: https:\/\/github\.com\/ada\/demo-app/);
   assert.deepEqual(gh.world.created, [{ name: 'demo-app', private: true }]);
@@ -438,20 +439,51 @@ test('connect: reuses a stored sign-in, and asks for another name when the name 
   gh.world.taken.push('demo-app');
   const dir = approvedProject();
 
-  const taken = await runAsync(dir, ['connect'], gh.env);
+  const taken = await runAsync(dir, ['connect', '--auto'], gh.env);
   assert.equal(taken.code, 1);
   assert.match(taken.out, /already has a repository called "demo-app"/);
 
-  const renamed = await runAsync(dir, ['connect', '--name', 'demo-app-2'], gh.env);
+  const renamed = await runAsync(dir, ['connect', '--auto', '--name', 'demo-app-2'], gh.env);
   assert.equal(renamed.code, 0, renamed.out);
   assert.match(renamed.out, /ada\/demo-app-2/);
 });
 
-test('connect: without a registered GitHub app it explains the manual way', async () => {
+test('connect: lists three choices and is honest about what the automatic one may do', async (t) => {
+  const gh = await fakeGitHub(t);
   const dir = approvedProject();
-  const result = await runAsync(dir, ['connect'], { VIBE_RAILS_GITHUB_CLIENT_ID: '' });
-  assert.equal(result.code, 1);
-  assert.match(result.out, /github\.com\/new/);
+  const choices = await runAsync(dir, ['connect'], gh.env);
+  assert.equal(choices.code, 0);
+  assert.match(choices.out, /three choices/);
+  assert.match(choices.out, /connect --local[\s\S]*connect --manual[\s\S]*connect --auto/);
+  assert.match(choices.out, /THEIR OWN account/);
+  assert.match(choices.out, /full control of[\s\S]*private repositories/);
+  assert.deepEqual(gh.world.created, [], 'listing the choices starts nothing');
+  assert.ok(!fs.existsSync(path.join(dir, '.git', 'vibe-rails-github.json')));
+});
+
+test('connect: without a registered GitHub app only the two other choices are offered', async () => {
+  const dir = approvedProject();
+  const choices = await runAsync(dir, ['connect'], {});
+  assert.match(choices.out, /two choices/);
+  assert.doesNotMatch(choices.out, /--auto/);
+  assert.equal((await runAsync(dir, ['connect', '--auto'], {})).code, 1);
+});
+
+test('connect --manual: gives the user the steps, then accepts the address they bring back', async (t) => {
+  const gh = await fakeGitHub(t);
+  const dir = approvedProject();
+  const steps = await runAsync(dir, ['connect', '--manual'], gh.env);
+  assert.match(steps.out, /github\.com\/new[\s\S]*demo-app[\s\S]*"Private"[\s\S]*Do not tick "Add a README file"[\s\S]*vibe-rails connect <address>/);
+
+  const linked = await runAsync(dir, ['connect', gh.bare], gh.env);
+  assert.equal(linked.code, 0, linked.out);
+  assert.match(linked.out, /backed up on GitHub/);
+  assert.deepEqual(gh.world.created, [], 'nothing was created on the user\'s account');
+
+  const other = approvedProject();
+  const wrong = await runAsync(other, ['connect', path.join(os.tmpdir(), 'no-such-repo.git')], gh.env);
+  assert.equal(wrong.code, 1);
+  assert.match(wrong.out, /Could not reach that repository[\s\S]*connect --auto/);
 });
 
 test('hooks.json: each hook command runs the way Claude Code runs it and gives the expected verdict', () => {
@@ -473,4 +505,41 @@ test('hooks.json: each hook command runs the way Claude Code runs it and gives t
   assert.match(commit.out, /vibe-rails save/);
   for (const tool of ['Bash', 'Write', 'Edit']) assert.match(tool, new RegExp(`^(${commit.matcher})$`));
   assert.equal(fire('PreToolUse', { tool_name: 'Bash', tool_input: { command: 'ls' } }).code, 0);
+});
+
+test('preview: starts the app in the background, reports its address, and can be stopped', () => {
+  const dir = approvedProject();
+  const started = run(dir, ['preview']);
+  assert.equal(started.code, 0, started.out);
+  assert.match(started.out, /The app is running at http:\/\/localhost:4999\//);
+  const { pid } = JSON.parse(fs.readFileSync(path.join(dir, '.vibe-rails', 'tmp', 'preview.json'), 'utf8'));
+  assert.doesNotThrow(() => process.kill(pid, 0), 'the app keeps running after the command returns');
+
+  assert.match(run(dir, ['preview']).out, /already running at http:\/\/localhost:4999\//);
+  assert.match(run(dir, ['preview', 'stop']).out, /preview is stopped/);
+  spawnSync('sleep', ['0.3']);
+  assert.throws(() => process.kill(pid, 0), 'the app is gone after stop');
+  assert.match(run(dir, ['preview', 'stop']).out, /was not running/);
+  assert.equal(spawnSync('git', ['status', '--porcelain'], { cwd: dir, encoding: 'utf8' }).stdout, '', 'preview leaves nothing to save');
+});
+
+test('preview: says so when the app fails to start', () => {
+  const dir = approvedProject();
+  fs.writeFileSync(path.join(dir, 'dev-server.cjs'), "console.log('boom'); process.exit(1);");
+  const failed = run(dir, ['preview']);
+  assert.equal(failed.code, 1);
+  assert.match(failed.out, /did not start[\s\S]*boom/);
+});
+
+test('online backup is optional: connect --local records the choice and stops the reminders', () => {
+  const dir = approvedProject();
+  assert.match(run(dir, ['next']).out, /Optional, ask once[\s\S]*vibe-rails connect/);
+  assert.equal(run(dir, ['connect', '--local']).code, 0);
+  assert.doesNotMatch(run(dir, ['next']).out, /GitHub|connect/);
+  setTests(dir, [{ name: '[S1] works', status: 'failed' }]);
+  run(dir, ['red', 'S1']);
+  setTests(dir, [{ name: '[S1] works', status: 'passed' }]);
+  const saved = run(dir, ['save', 'build S1', '--for', 'S1']);
+  assert.equal(saved.code, 0, saved.out);
+  assert.doesNotMatch(saved.out, /GitHub|connect|backup/i);
 });

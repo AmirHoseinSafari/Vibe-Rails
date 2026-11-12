@@ -15,7 +15,7 @@ The user is not technical. Do not ask them for error messages or logs unless the
 6. Run `vibe-rails red S9`. It must confirm the test fails. A test that passes has not caught the bug: rewrite it until it fails for the same reason the user saw.
 7. Fix the cause, not the symptom. Do not change other tests to make them pass.
 8. Run `vibe-rails save "<what was fixed, in plain words>" --for S9`.
-9. Tell the user in one or two sentences what was wrong and that it is fixed, and let them check (`npm run dev`). When they say it works, run `vibe-rails confirm S9`.
+9. Tell the user in one or two sentences what was wrong and that it is fixed, and let them check (`vibe-rails preview`). When they say it works, run `vibe-rails confirm S9`.
 
 If the bug appeared right after a recent change and the user would rather go back than fix forward, offer `vibe-rails undo --last-save`.
 
