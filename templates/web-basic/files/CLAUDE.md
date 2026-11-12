@@ -15,4 +15,4 @@ This project is built with Vibe Rails. The person you are working with is not te
 - Keep replies short. Do not paste test output or code to the user unless they ask.
 
 Stack: React + TypeScript + Vite, tests with Vitest and Testing Library next to the code (`src/**/*.test.tsx`).
-Data lives in the browser (localStorage). Preview for the user: `npm run dev`.
+Data lives in the browser (localStorage). Preview for the user: `vibe-rails preview` (runs in the background and prints the address). Do not run `npm run dev` yourself; it never finishes.

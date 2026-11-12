@@ -22,10 +22,14 @@ const HELP = `vibe-rails: guard rails for vibe coding
   check                             run the gate without saving
   save "<what changed>" --for <ids> | --tweak
                                     gate, then commit and push
+  preview [stop]                    start the app in the background and print its address
   confirm <ids>                     the user tried it and it works
   undo [--last-save]                go back to the last saved version
-  connect [--name "<name>"]         sign in to GitHub and back the project up
-  connect <github-url>              use an existing repository instead
+  connect                           online backup is optional: lists the choices to offer the user
+  connect --local                   keep the project on this computer only
+  connect --manual                  steps for the user to create the repository themselves
+  connect <github-url>              use the repository the user created
+  connect --auto [--name "<name>"]  sign in from the browser and create it for them
   status                            one-line summary`;
 
 export function parseArgs(argv) {

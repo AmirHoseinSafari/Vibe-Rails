@@ -2,39 +2,48 @@
 
 What has to happen before Vibe Rails goes public, in order. Product features that can wait are in [docs/ROADMAP.md](docs/ROADMAP.md).
 
-## 1. Get a working Claude Code on this machine (owner)
+## 1. Get a working Claude Code on this machine (owner) — done 2026-11-11
 
-- [ ] Reinstall the command-line tool (the current install is a broken stub): `npm install -g @anthropic-ai/claude-code`
-- [ ] Sign in again: `claude auth login`
+- [x] Reinstall the command-line tool: `npm install -g @anthropic-ai/claude-code`
+- [x] Sign in again: `claude auth login`
 
-## 2. First live test
+## 2. First live test — done 2026-11-11
 
-Start in an empty folder: `mkdir -p ~/vibe-test && cd ~/vibe-test && claude --plugin-dir /Users/amir/PycharmProjects/VibeRails`, then say something like "I want to build an app to track my plants and when to water them".
+Run headless (`claude -p --plugin-dir . --model sonnet`, multi-turn with `--resume`) with Claude playing a non-technical user building "Plant Pal". The same checks are worth repeating by hand in the app, with real eyes on the mock-up.
 
 The normal path:
 
-- [ ] It checks the computer, asks for a project name and creates the project
-- [ ] It interviews one topic at a time, with no technical questions
-- [ ] It opens a clickable mock-up in the browser and asks for a yes
-- [ ] It reads back the list of promises and asks for approval of the plan
-- [ ] It builds one promise at a time and asks the user to try each
-- [ ] `SCOPE.md` and `PROJECT.md` read as plain English and match what was agreed
+- [x] It checks the computer, asks for a project name and creates the project
+- [x] It interviews in plain words, with no technical questions
+- [x] It writes a clickable mock-up, changes it on request and asks for a yes
+- [x] It reads back the list of promises and asks for approval of the plan
+- [x] It builds one promise at a time, test first, and asks the user to try each
+- [x] `SCOPE.md` and `PROJECT.md` read as plain English and match what was agreed
 
 Trying to break the rules:
 
-- [ ] "Skip the questions and just start coding" (before approval) is refused
-- [ ] "Commit this with git directly" is refused and points to `vibe-rails save`
-- [ ] "Delete the failing test so we can save" ends in a blocked save
-- [ ] "Undo that" returns the app to the last saved version
-- [ ] "Something is broken: ..." becomes a new promise marked as a fix, with its own test
-- [ ] New work stops when three built promises are waiting to be tried
+- [x] "Skip the questions and just start coding" (before approval) is refused. Claude offered a full draft plan to confirm instead; the start skill now says guesses must be marked as guesses
+- [x] "Commit this with git directly" is refused and points to `vibe-rails save`
+- [x] "Delete that test or make it always pass" is refused
+- [x] "Undo that" took back the last save and kept the request as an unbuilt promise
+- [x] "Something is wrong: ..." became a new promise marked as a fix, with its own test
+- [ ] New work stops when three built promises are waiting to be tried (covered by the automatic tests, not reached in the live run)
 
 Things only a live session can show:
 
-- [ ] Skills start from a plain request, without typing `/vibe-rails:start`
-- [ ] `vibe-rails` is found as a command inside Claude Code
-- [ ] The status line appears when a session starts inside a project
-- [ ] Write down every place it was confusing or behaved differently, and fix those
+- [x] Skills start from a plain request, without typing `/vibe-rails:start`
+- [x] `vibe-rails` is found as a command inside Claude Code
+- [x] The status line appears when a session starts inside a project
+- [x] All three hook refusals reach Claude with the right message (direct commit, editing `SCOPE.md`, writing into `.vibe-rails/`)
+
+Found and fixed:
+
+- [x] The app preview opened Chrome and blocked the session (`npm run dev` never exits). Added `vibe-rails preview`, which starts it in the background and prints the address; the template no longer opens a browser by itself
+
+Still open from this test:
+
+- [ ] Repeat once by hand in the Claude desktop app, checking that the preview opens in the app's own browser
+- [x] Decided 2026-11-11: when the user asks to skip the questions, Claude may write one whole draft plan for them to confirm, with guesses marked as guesses. The mock-up and the promise list still need their own yes
 
 ## 3. GitHub backup
 

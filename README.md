@@ -17,7 +17,7 @@ It is a plugin for [Claude Code](https://claude.com/claude-code). The steps are 
 7. **Asks you to try it.** After a promise is built you try it and say whether it is what you meant. The AI cannot run far ahead: new work stops while three built promises are waiting for you.
 8. **Treats bugs and new features the same way.** Each becomes a new promise with its own test, so a fixed bug stays fixed.
 9. **Lets you go back.** "Undo" returns the app to the last saved version, or takes back the last save.
-10. **Backs the project up to your GitHub**, in a private repository. You type a short code in your browser; no terminal needed.
+10. **Offers an online backup, as your choice.** You can keep everything on your own computer, create a GitHub repository yourself and hand over its address, or let Vibe Rails create a private one in your own account after you type a short code in your browser. The automatic way needs GitHub's "full control of private repositories" permission, and you are told so before you agree.
 
 ## Install
 

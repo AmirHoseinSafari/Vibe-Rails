@@ -1,5 +1,5 @@
 // One function per command. Each returns an exit code: 0 fine, 1 blocked.
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -355,10 +355,10 @@ export function save({ args, flags }) {
     const push = git(root, ['push', '--no-verify', '-u', 'origin', 'HEAD'], { timeout: 60000 });
     lines.push(push.ok ? 'Sent to GitHub.' : `Saved on this computer, but GitHub could not be reached: ${push.err.split('\n').pop()}`);
   } else {
-    lines.push('Saved on this computer only. To back up online, run: vibe-rails connect');
+    lines.push(state.backup === 'local' ? 'Saved on this computer.' : 'Saved on this computer. (Online backup is optional: vibe-rails next explains.)');
   }
   if (items.length) {
-    lines.push(`Now let the user try it. When they say it works, run: vibe-rails confirm ${items.map((i) => i.id).join(',')}`);
+    lines.push(`Now let the user try it (vibe-rails preview). When they say it works, run: vibe-rails confirm ${items.map((i) => i.id).join(',')}`);
   }
   say(...lines);
   return 0;
@@ -467,20 +467,71 @@ function connectExisting(root, url) {
 
 // Run it, do what it says, run it again: each call moves the sign-in one step forward.
 export async function connect({ args, flags }) {
-  const { root, config } = open();
-  if (args[0]) return connectExisting(root, args[0]);
+  const { root, config, state } = open();
+  // Online backup is the user's choice. Keeping the project on this computer only is fine.
+  if (flags.local) {
+    state.backup = 'local';
+    saveState(root, config, state);
+    say('Noted: this project stays on this computer only. If the user changes their mind later, run: vibe-rails connect');
+    return 0;
+  }
+  if (args[0]) {
+    const code = connectExisting(root, args[0]);
+    if (code !== 0) {
+      say(
+        'If the address is right, this computer is not signed in to GitHub yet.',
+        github.clientId()
+          ? 'The simplest fix is the automatic choice, which signs in from the browser: vibe-rails connect --auto'
+          : 'The user can sign in with the GitHub Desktop app or the GitHub CLI (gh auth login), then try again.',
+      );
+    }
+    return code;
+  }
 
   if (hasRemote(root)) {
     const problem = pushFirst(root);
     say(problem ? `GitHub could not be reached: ${problem}` : 'Already connected. The project is backed up on GitHub.');
     return problem ? 1 : 0;
   }
-  if (!github.clientId()) {
+
+  if (flags.manual) {
     say(
-      'Automatic GitHub sign-in is not set up in this copy of Vibe Rails. By hand instead:',
-      '1. The user creates an empty private repository on https://github.com/new (no README).',
-      '2. Run: vibe-rails connect <the repository address>',
+      'Tell the user these steps, in these words:',
+      '  1. Open https://github.com in your browser and sign in. If you have no account, create a free one first.',
+      '  2. Open https://github.com/new',
+      `  3. Under "Repository name", type a name, for example: ${slugify(config.name)}`,
+      '  4. Choose "Private", so only you can see it.',
+      '  5. Leave everything else as it is. Do not tick "Add a README file".',
+      '  6. Press the green "Create repository" button.',
+      '  7. On the next page, copy the address in the box near the top. It ends in ".git". Paste it here.',
+      'When they give you the address, run: vibe-rails connect <address>',
     );
+    return 0;
+  }
+
+  if (!flags.auto) {
+    const automatic = github.clientId()
+      ? [
+        '  3. Automatic. They type a short code on github.com and Vibe Rails creates a private repository in THEIR OWN account',
+        '     and uploads the project. Be clear about the permission: GitHub will ask them to give Vibe Rails "full control of',
+        '     private repositories", which covers all their repositories, because GitHub offers nothing narrower for this.',
+        '     Vibe Rails only creates this one repository and uploads to it. The sign-in is kept on their computer and is not',
+        '     sent to anyone. If they choose this: vibe-rails connect --auto',
+      ]
+      : [];
+    say(
+      `An online backup is optional. Offer the user these ${automatic.length ? 'three' : 'two'} choices in plain words and let them pick:`,
+      '  1. Keep it on this computer only. Nothing goes online. Their work is still saved here after every step.',
+      '     If they choose this: vibe-rails connect --local',
+      '  2. They create the online repository themselves on GitHub and give you its address. Vibe Rails gets no access',
+      '     to their GitHub account. For the steps to read to them: vibe-rails connect --manual',
+      ...automatic,
+    );
+    return 0;
+  }
+
+  if (!github.clientId()) {
+    say('The automatic choice is not available in this copy of Vibe Rails. For the steps to do it by hand: vibe-rails connect --manual');
     return 1;
   }
   if (!github.hasCredentialStorage()) {
@@ -493,7 +544,7 @@ export async function connect({ args, flags }) {
   const create = async (token) => {
     const made = await github.createRepository(token, name);
     if (made.taken) {
-      say(`The user already has a repository called "${name}" on GitHub. Ask them for another name, then run: vibe-rails connect --name "<name>"`);
+      say(`The user already has a repository called "${name}" on GitHub. Ask them for another name, then run: vibe-rails connect --auto --name "<name>"`);
       return 1;
     }
     if (made.denied) return null;
@@ -517,7 +568,7 @@ export async function connect({ args, flags }) {
       const waitMs = Number(process.env.VIBE_RAILS_POLL_MS ?? 30000);
       const result = await github.pollForToken(pending, waitMs);
       if (result.pending) {
-        say(`Still waiting for the user to type the code ${pending.userCode} at ${pending.url}. Run this again when they have.`);
+        say(`Still waiting for the user to type the code ${pending.userCode} at ${pending.url}. When they have, run: vibe-rails connect --auto`);
         return 0;
       }
       if (result.token) {
@@ -526,7 +577,7 @@ export async function connect({ args, flags }) {
         if (login) github.storeToken(login, result.token);
         const code = await create(result.token);
         if (code !== null) return code;
-        say('GitHub signed the user in but would not create a repository. Run this again to retry.');
+        say('GitHub signed the user in but would not create a repository. To retry: vibe-rails connect --auto');
         return 1;
       }
     }
@@ -540,9 +591,76 @@ export async function connect({ args, flags }) {
     'Tell the user, in these words:',
     `  1. Open ${started.url} in your browser. If you have no GitHub account yet, create a free one there first.`,
     `  2. Type this code: ${started.userCode}`,
-    '  3. Press "Authorize", then tell me you are done.',
-    'When they say done, run: vibe-rails connect',
+    '  3. GitHub will ask to give Vibe Rails "full control of private repositories". That is the only way GitHub lets a tool',
+    '     create a private repository for you. Vibe Rails will create one repository in your account and upload this project;',
+    '     it does nothing else, and the sign-in stays on this computer.',
+    '  4. If you are happy with that, press "Authorize", then tell me you are done. If not, tell me and we will pick another way.',
+    'When they say done, run: vibe-rails connect --auto',
   );
+  return 0;
+}
+
+// ---------- preview ----------
+
+const TRY_HINT = "Open that address for the user: in the Claude app's own browser if you can, otherwise ask them to open it in theirs. Then tell them exactly what to click.";
+
+// Starts the app in the background and returns at once with its address, so the AI is never left waiting on a server.
+export async function preview({ args }) {
+  const { root, config } = open();
+  const tmp = path.join(root, DIR, 'tmp');
+  const file = path.join(tmp, 'preview.json');
+  const log = path.join(tmp, 'preview.log');
+  const running = () => {
+    try {
+      const info = JSON.parse(fs.readFileSync(file, 'utf8'));
+      process.kill(info.pid, 0);
+      return info;
+    } catch {
+      return null;
+    }
+  };
+
+  if (args[0] === 'stop') {
+    const info = running();
+    if (info) {
+      try {
+        process.kill(-info.pid);
+      } catch { /* already gone */ }
+    }
+    fs.rmSync(file, { force: true });
+    say(info ? 'The preview is stopped.' : 'The preview was not running.');
+    return 0;
+  }
+
+  const already = running();
+  if (already) {
+    say(`The app is already running at ${already.url}`, TRY_HINT);
+    return 0;
+  }
+
+  fs.mkdirSync(tmp, { recursive: true });
+  const out = fs.openSync(log, 'w');
+  const child = spawn(config.commands.dev, {
+    cwd: root, shell: true, detached: true, stdio: ['ignore', out, out], env: { ...process.env, BROWSER: 'none' },
+  });
+  child.unref();
+
+  const deadline = Date.now() + 30000;
+  let url = null;
+  while (!url && Date.now() < deadline && child.exitCode === null) {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const text = fs.readFileSync(log, 'utf8').replace(/\x1b\[[0-9;]*m/g, '');
+    url = /https?:\/\/(?:localhost|127\.0\.0\.1):\d+[^\s]*/.exec(text)?.[0] || null;
+  }
+  if (!url) {
+    try {
+      process.kill(-child.pid);
+    } catch { /* already gone */ }
+    say('The app did not start.', fs.readFileSync(log, 'utf8').trim().split('\n').slice(-8).join('\n'));
+    return 1;
+  }
+  writeJson(file, { pid: child.pid, url });
+  say(`The app is running at ${url}`, TRY_HINT);
   return 0;
 }
 
@@ -597,7 +715,7 @@ export function next() {
     const [planned] = live('planned');
     const waiting = untried(state);
     const askToTry = () => lines.push(
-      `Ask the user to try what was built (${config.commands.dev}). Tell them exactly what to click for each:`,
+      'Ask the user to try what was built. Start it with: vibe-rails preview   then tell them exactly what to click for each:',
       ...waiting.map((i) => `- ${i.id}: ${i.text}`),
       'For each one they say works: vibe-rails confirm <ids>. If one is not what they meant: vibe-rails scope add --bug "<what should happen instead>"',
     );
@@ -618,11 +736,16 @@ export function next() {
     } else {
       lines.push(
         'Everything agreed is built and checked.',
-        `Let the user try it (${config.commands.dev}) and ask what they think.`,
+        'Let the user try it (vibe-rails preview) and ask what they think.',
         'New request: vibe-rails scope add "<promise>".  Something broken: vibe-rails scope add --bug "<what should happen instead>".',
       );
     }
-    if (!hasRemote(open().root)) lines.push('Not backed up online yet. When the user is ready: vibe-rails connect');
+    if (!hasRemote(open().root) && state.backup !== 'local') {
+      lines.push(
+        'Optional, ask once at a calm moment: would the user like an online backup of the project? It is their choice.',
+        'Run vibe-rails connect to get the choices to offer them (keep it local, do it themselves, or automatic). This reminder stops once they choose.',
+      );
+    }
   }
   say(...lines);
   return 0;

@@ -79,9 +79,15 @@ Passes only if:
 - `vibe-rails undo` discards unsaved app files (`git reset --hard`) after storing them at `refs/vibe-rails/undo-backup`. State is kept; `red` items return to `planned` because their tests are gone.
 - `vibe-rails undo --last-save` reverts the last commit that has a `Scope:` trailer, returns its items to `planned`, runs the gate, and commits `Undo: ...` with `Scope: undo`. It refuses if the gate would fail afterwards.
 
+### Preview
+
+`vibe-rails preview` starts the stack's `dev` command detached, with output to `.vibe-rails/tmp/preview.log`, waits up to 30 seconds for a `http://localhost:<port>` address to appear in it, records `{pid, url}` in `.vibe-rails/tmp/preview.json` and returns. A second call reports the running address; `preview stop` kills the process group. This exists because a dev server never exits: run directly by the AI it blocks the session, and Vite's `--open` sends the user to their system browser instead of the Claude app's own.
+
 ### GitHub connection
 
-`vibe-rails connect` is re-run until done; each call advances one step: use a stored sign-in if it can create the repository, else poll a pending device code (kept in `.git/vibe-rails-github.json`, never committed), else start a new device flow and print what to tell the user. The token goes to `git credential approve`, so git's configured helper stores it. `VIBE_RAILS_GITHUB_WEB`, `VIBE_RAILS_GITHUB_API` and `VIBE_RAILS_GITHUB_CLIENT_ID` override the endpoints and app id; the tests use them to talk to a local fake. The built-in client id is empty until the owner registers an app (see [GITHUB_APP.md](GITHUB_APP.md)).
+Online backup is optional. `vibe-rails connect` with no arguments only lists the choices for the AI to offer: `--local` (recorded as `state.backup = 'local'`, which silences the reminder), `--manual` (prints the steps for the user to create a repository, then `connect <url>`), and `--auto` (offered only when a client id is configured). The choices text states the `repo` permission the automatic route needs, and the sign-in instructions repeat it before the user authorises.
+
+`vibe-rails connect --auto` is re-run until done; each call advances one step: use a stored sign-in if it can create the repository, else poll a pending device code (kept in `.git/vibe-rails-github.json`, never committed), else start a new device flow and print what to tell the user. The token goes to `git credential approve`, so git's configured helper stores it. `VIBE_RAILS_GITHUB_WEB`, `VIBE_RAILS_GITHUB_API` and `VIBE_RAILS_GITHUB_CLIENT_ID` override the endpoints and app id; the tests use them to talk to a local fake. The built-in client id is empty until the owner registers an app (see [GITHUB_APP.md](GITHUB_APP.md)).
 
 ## Enforcement
 
