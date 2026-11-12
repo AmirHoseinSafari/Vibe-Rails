@@ -35,7 +35,8 @@ bin/vibe-rails init /tmp/demo --name "Demo" && cd /tmp/demo && /path/to/bin/vibe
 - `skills/{start,feature,bug}/SKILL.md` the prompts. Keep them short; process logic belongs in `next()` in `src/commands.js`.
 - `templates/web-basic/` the one shipped stack. `test/fixtures/fake-stack/` is a fake stack so tests run without npm.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) how the parts fit and the state model.
-- [docs/ROADMAP.md](docs/ROADMAP.md) what is unverified and what comes next. **Start there.**
+- [TODO.md](TODO.md) the ordered checklist to get from here to a public launch. **Start there**, and tick items off as they are done.
+- [docs/ROADMAP.md](docs/ROADMAP.md) product features that can wait, and what is still unverified.
 
 ## Decisions made (with the owner, November 2026)
 
