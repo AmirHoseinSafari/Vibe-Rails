@@ -47,9 +47,10 @@ Still open from this test:
 
 ## 3. GitHub backup
 
-- [ ] Register the GitHub OAuth app and enable Device Flow ([docs/GITHUB_APP.md](docs/GITHUB_APP.md)) (owner)
-- [ ] Put the Client ID in `BUILT_IN_CLIENT_ID` in `src/lib/github.js`
-- [ ] Test `vibe-rails connect` against the real GitHub: signed out, signed in, and with a repository name that is already taken
+- [x] Register the GitHub OAuth app and enable Device Flow ([docs/GITHUB_APP.md](docs/GITHUB_APP.md)) (owner), done 2026-11-12
+- [x] Put the Client ID in `BUILT_IN_CLIENT_ID` in `src/lib/github.js`
+- [x] Renew sign-ins that expire, so the app can keep "Expire user access tokens" on (tested against the fake GitHub)
+- [ ] Test `vibe-rails connect` against the real GitHub: signed out, signed in, with a repository name that is already taken, and a save more than eight hours after signing in (the renewal)
 
 ## 4. Test the real install path
 
