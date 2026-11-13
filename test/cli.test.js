@@ -368,19 +368,33 @@ async function fakeGitHub(t) {
   const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'vibe-rails-gh-')));
   const bare = path.join(base, 'remote.git');
   spawnSync('git', ['init', '--bare', '-b', 'main', bare]);
-  const world = { authorized: false, taken: [], created: [] };
+  // expiring: the sign-in runs out after expiresIn seconds and comes with a renewal token, as a GitHub app set to expire does.
+  const world = { authorized: false, taken: [], created: [], expiring: false, expiresIn: 28800, token: 'token-123', renewal: null, renewals: 0 };
+  const grant = () => {
+    world.onSignIn?.();
+    if (!world.expiring) return { access_token: world.token };
+    world.renewal = `renewal-for-${world.token}`;
+    return { access_token: world.token, expires_in: world.expiresIn, refresh_token: world.renewal, refresh_token_expires_in: 15897600 };
+  };
   const server = http.createServer((req, res) => {
     let body = '';
     req.on('data', (d) => { body += d; });
     req.on('end', () => {
       const data = body ? JSON.parse(body) : {};
       const reply = (status, json) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(json)); };
-      const signedIn = req.headers.authorization === 'Bearer token-123';
+      const signedIn = req.headers.authorization === `Bearer ${world.token}`;
       if (req.url === '/login/device/code') {
         return reply(200, { device_code: 'dev-1', user_code: 'WDJB-MJHT', verification_uri: 'https://github.com/login/device', interval: 0, expires_in: 900 });
       }
       if (req.url === '/login/oauth/access_token') {
-        return reply(200, world.authorized ? { access_token: 'token-123' } : { error: 'authorization_pending' });
+        if (data.grant_type === 'refresh_token') {
+          // A renewal token works once; using it replaces both tokens.
+          if (!world.renewal || data.refresh_token !== world.renewal) return reply(200, { error: 'bad_refresh_token' });
+          world.renewals += 1;
+          world.token = `token-renewed-${world.renewals}`;
+          return reply(200, grant());
+        }
+        return reply(200, world.authorized ? grant() : { error: 'authorization_pending' });
       }
       if (req.url === '/user') return signedIn ? reply(200, { login: 'ada' }) : reply(401, {});
       if (req.url === '/user/repos') {
@@ -403,7 +417,9 @@ async function fakeGitHub(t) {
     VIBE_RAILS_GITHUB_WEB: url, VIBE_RAILS_GITHUB_API: url, VIBE_RAILS_GITHUB_CLIENT_ID: 'test-client',
     VIBE_RAILS_POLL_MS: '0', GIT_CONFIG_GLOBAL: gitconfig, GIT_CONFIG_NOSYSTEM: '1',
   };
-  return { world, env, bare, credentials };
+  // Makes the stored sign-in look as if its eight hours are over.
+  const runOut = () => fs.writeFileSync(credentials, fs.readFileSync(credentials, 'utf8').replace(/:\d+%3a/i, ':1%3a'));
+  return { world, env, bare, credentials, runOut };
 }
 
 test('connect: signs in with a code, creates a private repository and uploads', async (t) => {
@@ -446,6 +462,62 @@ test('connect: reuses a stored sign-in, and asks for another name when the name 
   const renamed = await runAsync(dir, ['connect', '--auto', '--name', 'demo-app-2'], gh.env);
   assert.equal(renamed.code, 0, renamed.out);
   assert.match(renamed.out, /ada\/demo-app-2/);
+});
+
+test('connect: a sign-in that expires is renewed by itself before the next upload', async (t) => {
+  const gh = await fakeGitHub(t);
+  Object.assign(gh.world, { authorized: true, expiring: true });
+  const dir = approvedProject();
+  await runAsync(dir, ['connect', '--auto'], gh.env);
+  const done = await runAsync(dir, ['connect', '--auto'], gh.env);
+  assert.equal(done.code, 0, done.out);
+  assert.match(fs.readFileSync(gh.credentials, 'utf8'), /ada:token-123@127\.0\.0\.1/);
+  assert.equal(gh.world.renewals, 0);
+
+  // The sign-in has run out by the time of the next save: it is renewed first, and the new one is kept.
+  gh.runOut();
+  setTests(dir, [{ name: '[S1] works', status: 'failed' }]);
+  run(dir, ['red', 'S1']);
+  setTests(dir, [{ name: '[S1] works', status: 'passed' }]);
+  const saved = await runAsync(dir, ['save', 'build S1', '--for', 'S1'], gh.env);
+  assert.equal(saved.code, 0, saved.out);
+  assert.match(saved.out, /Sent to GitHub/);
+  assert.equal(gh.world.renewals, 1);
+  const kept = fs.readFileSync(gh.credentials, 'utf8');
+  assert.match(kept, /ada:token-renewed-1@127\.0\.0\.1/);
+  assert.doesNotMatch(kept, /token-123/, 'the old sign-in is replaced, not kept beside the new one');
+  assert.match(kept, /renewal-for-token-renewed-1/);
+
+  // A sign-in with hours left is used as it is.
+  const tweak = await runAsync(dir, ['save', 'tidy up', '--tweak'], gh.env);
+  assert.equal(gh.world.renewals, 1, tweak.out);
+});
+
+test('connect: when the sign-in can no longer be renewed, the user is asked to sign in again', async (t) => {
+  const gh = await fakeGitHub(t);
+  Object.assign(gh.world, { authorized: true, expiring: true });
+  const dir = approvedProject();
+  await runAsync(dir, ['connect', '--auto'], gh.env);
+  await runAsync(dir, ['connect', '--auto'], gh.env);
+
+  // GitHub no longer accepts the renewal (six months unused, or the user withdrew access) and refuses the upload.
+  gh.runOut();
+  gh.world.renewal = null;
+  spawnSync('git', ['remote', 'set-url', 'origin', path.join(os.tmpdir(), 'refused.git')], { cwd: dir });
+  fs.writeFileSync(path.join(dir, 'note.txt'), 'a small change');
+  const saved = await runAsync(dir, ['save', 'a note', '--tweak'], gh.env);
+  assert.equal(saved.code, 0, 'the work is still saved on this computer');
+  assert.match(saved.out, /Saved on this computer, but the GitHub sign-in has run out[\s\S]*vibe-rails connect --auto/);
+
+  const again = await runAsync(dir, ['connect', '--auto'], gh.env);
+  assert.match(again.out, /Type this code: WDJB-MJHT/);
+
+  gh.world.onSignIn = () => spawnSync('git', ['remote', 'set-url', 'origin', gh.bare], { cwd: dir }); // uploads are accepted again
+  const back = await runAsync(dir, ['connect', '--auto'], gh.env);
+  assert.equal(back.code, 0, back.out);
+  assert.match(back.out, /Signed in again/);
+  assert.deepEqual(gh.world.created.length, 1, 'no second repository is created');
+  assert.match(spawnSync('git', ['log', '--format=%s', 'main'], { cwd: gh.bare, encoding: 'utf8' }).stdout, /a note/);
 });
 
 test('connect: lists three choices and is honest about what the automatic one may do', async (t) => {

@@ -297,7 +297,7 @@ export function check() {
 
 export const test = check;
 
-export function save({ args, flags }) {
+export async function save({ args, flags }) {
   const { root, config, state } = open();
   requireBuild(state);
   const message = textArg(args[0], 'a short description of what changed');
@@ -352,8 +352,10 @@ export function save({ args, flags }) {
 
   const lines = [result.lines[0], `Saved: ${message}`];
   if (hasRemote(root)) {
-    const push = git(root, ['push', '--no-verify', '-u', 'origin', 'HEAD'], { timeout: 60000 });
-    lines.push(push.ok ? 'Sent to GitHub.' : `Saved on this computer, but GitHub could not be reached: ${push.err.split('\n').pop()}`);
+    const { problem, lapsed } = await upload(root);
+    if (!problem) lines.push('Sent to GitHub.');
+    else if (lapsed) lines.push(`Saved on this computer, but ${SIGN_IN_AGAIN}`);
+    else lines.push(`Saved on this computer, but GitHub could not be reached: ${problem}`);
   } else {
     lines.push(state.backup === 'local' ? 'Saved on this computer.' : 'Saved on this computer. (Online backup is optional: vibe-rails next explains.)');
   }
@@ -376,7 +378,7 @@ export function confirm({ args }) {
   return 0;
 }
 
-export function undo({ flags }) {
+export async function undo({ flags }) {
   const { root, config, state } = open();
   // Work means the app's files. The tool's own records are kept across an undo, so they do not count.
   const records = [`${DIR}/state.json`, 'PROJECT.md', 'SCOPE.md'];
@@ -414,7 +416,7 @@ export function undo({ flags }) {
     }
     git(root, ['add', '-A']);
     git(root, ['commit', '--no-verify', '-m', `Undo: ${subject}`, '-m', 'Scope: undo']);
-    if (hasRemote(root)) git(root, ['push', '--no-verify', '-u', 'origin', 'HEAD'], { timeout: 60000 });
+    if (hasRemote(root)) await upload(root);
     say(`Undone: "${subject}".${ids.length ? ` ${ids.join(', ')} ${ids.length > 1 ? 'are' : 'is'} back to "not built yet".` : ''}`);
     return 0;
   }
@@ -447,12 +449,17 @@ export function undo({ flags }) {
   return 0;
 }
 
-function pushFirst(root) {
+const SIGN_IN_AGAIN = 'the GitHub sign-in has run out, so nothing was sent online. Ask the user to sign in again: vibe-rails connect --auto';
+
+// Sends the saved work to GitHub, renewing the sign-in first if it has run out.
+// Returns { problem } (null when it worked) and { lapsed: true } when the user has to sign in again.
+async function upload(root) {
+  const { lapsed } = await github.renewSignIn();
   const push = git(root, ['push', '--no-verify', '-u', 'origin', 'HEAD'], { timeout: 60000 });
-  return push.ok ? null : push.err.split('\n').pop();
+  return { problem: push.ok ? null : push.err.split('\n').pop(), lapsed: Boolean(lapsed) && !push.ok };
 }
 
-function connectExisting(root, url) {
+async function connectExisting(root, url) {
   git(root, ['remote', 'remove', 'origin']);
   git(root, ['remote', 'add', 'origin', url]);
   if (!git(root, ['ls-remote', 'origin'], { timeout: 20000 }).ok) {
@@ -460,7 +467,7 @@ function connectExisting(root, url) {
     say('Could not reach that repository from this computer. Check the address, and that this computer is signed in to GitHub.');
     return 1;
   }
-  const problem = pushFirst(root);
+  const { problem } = await upload(root);
   say(problem ? `Connected, but the first upload failed: ${problem}` : 'Connected. The project is backed up on GitHub.');
   return problem ? 1 : 0;
 }
@@ -476,7 +483,7 @@ export async function connect({ args, flags }) {
     return 0;
   }
   if (args[0]) {
-    const code = connectExisting(root, args[0]);
+    const code = await connectExisting(root, args[0]);
     if (code !== 0) {
       say(
         'If the address is right, this computer is not signed in to GitHub yet.',
@@ -488,10 +495,22 @@ export async function connect({ args, flags }) {
     return code;
   }
 
-  if (hasRemote(root)) {
-    const problem = pushFirst(root);
-    say(problem ? `GitHub could not be reached: ${problem}` : 'Already connected. The project is backed up on GitHub.');
-    return problem ? 1 : 0;
+  const connected = hasRemote(root);
+  if (connected) {
+    const { problem, lapsed } = await upload(root);
+    if (!problem) {
+      say('Already connected. The project is backed up on GitHub.');
+      return 0;
+    }
+    if (!lapsed) {
+      say(`GitHub could not be reached: ${problem}`);
+      return 1;
+    }
+    if (!flags.auto) {
+      say(`The project is connected, but ${SIGN_IN_AGAIN}`);
+      return 1;
+    }
+    // The sign-in ran out and cannot be renewed: carry on below to sign in again.
   }
 
   if (flags.manual) {
@@ -542,6 +561,11 @@ export async function connect({ args, flags }) {
   const name = flags.name || slugify(config.name);
   const pendingFile = path.join(root, '.git', 'vibe-rails-github.json');
   const create = async (token) => {
+    if (connected) {
+      const { problem } = await upload(root);
+      say(problem ? `Signed in again, but the upload failed: ${problem}` : 'Signed in again. The project is backed up on GitHub.');
+      return problem ? 1 : 0;
+    }
     const made = await github.createRepository(token, name);
     if (made.taken) {
       say(`The user already has a repository called "${name}" on GitHub. Ask them for another name, then run: vibe-rails connect --auto --name "<name>"`);
@@ -549,13 +573,14 @@ export async function connect({ args, flags }) {
     }
     if (made.denied) return null;
     git(root, ['remote', 'add', 'origin', made.url]);
-    const problem = pushFirst(root);
+    const { problem } = await upload(root);
     say(problem ? `The repository was created (${made.page}), but the upload failed: ${problem}` : `Backed up on GitHub, visible only to the user: ${made.page}`);
     return problem ? 1 : 0;
   };
 
   // 1. Already signed in on this computer?
-  const stored = github.storedToken();
+  if (!connected) await github.renewSignIn();
+  const stored = connected ? null : github.storedToken();
   if (stored) {
     const code = await create(stored);
     if (code !== null) return code;
@@ -574,7 +599,7 @@ export async function connect({ args, flags }) {
       if (result.token) {
         fs.rmSync(pendingFile);
         const login = await github.getLogin(result.token);
-        if (login) github.storeToken(login, result.token);
+        if (login) github.storeToken(login, result.token, result);
         const code = await create(result.token);
         if (code !== null) return code;
         say('GitHub signed the user in but would not create a repository. To retry: vibe-rails connect --auto');

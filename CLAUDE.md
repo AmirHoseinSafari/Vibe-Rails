@@ -5,7 +5,7 @@ A Claude Code plugin that lets non-technical people build apps with the discipli
 ## Run and test
 
 ```bash
-npm test                      # 31 end-to-end tests, about 30 seconds, no install needed
+npm test                      # 33 end-to-end tests, about 30 seconds, no install needed
 bin/vibe-rails help           # the tool itself
 claude --plugin-dir .         # load this copy as a plugin in Claude Code
 ```
@@ -55,6 +55,7 @@ bin/vibe-rails init /tmp/demo --name "Demo" && cd /tmp/demo && /path/to/bin/vibe
 - **Undo keeps promises and answers** and only throws away app files, with a backup ref.
 - **Online backup is a suggestion, not a step** (owner decision, 2026-11-11). The AI offers it once, as three choices without steering: keep it local (`connect --local`), create the repository themselves (`connect --manual`, then `connect <url>`), or automatic (`connect --auto`). The automatic route needs GitHub's broad `repo` permission and the user must be told that before authorising. The local git repository is always there, because saving, the gate and undo depend on it, but the user never has to know.
 - **GitHub sign-in uses the device flow** built into the tool, not the GitHub CLI, so the user needs only a browser. Sign-in is stored by git's credential helper, never by us.
+- **Sign-ins may expire** (owner decision, 2026-11-12). The GitHub app is set to "Expire user access tokens": a sign-in lasts eight hours and the tool renews it by itself before each upload (`renewSignIn` in `src/lib/github.js`). The renewal token sits in the same credential helper under a made-up host ending in `.vibe-rails.invalid`. If GitHub refuses the renewal, the save still happens locally and the user is asked to sign in again with `connect --auto`.
 - **Repository is private until it works**, then public under MIT so people can fork it.
 - Other projects studied: Superpowers, GitHub Spec Kit, BMAD-METHOD, Task Master, Spec Guard. All are developer-focused; the gap is non-technical users plus mechanical enforcement.
 
@@ -64,7 +65,7 @@ Done and tested: the tool, both hook layers, three skills, the `web-basic` templ
 
 Live-tested on 2026-11-11 (headless Claude Code 2.1.322, Sonnet, Claude playing the user): skills trigger from a plain request, the full flow from interview to built promises works, and all three hook refusals reach the model. That run led to `vibe-rails preview`. To repeat it: `claude -p "<user message>" --plugin-dir . --model sonnet --permission-mode acceptEdits --allowedTools Bash Read Write Edit Glob Grep Skill --output-format stream-json --verbose`, then `--resume <session id>` for each further user turn.
 
-Not verified: a run by hand in the desktop app, `connect` against the real GitHub (needs the owner's OAuth app), and any run with a real non-technical user. See [TODO.md](TODO.md).
+Not verified: a run by hand in the desktop app, `connect --auto` against the real GitHub (the app is registered and its Client ID is built in; GitHub accepts the code request, but nobody has signed in, created a repository or renewed a sign-in for real yet), and any run with a real non-technical user. See [TODO.md](TODO.md).
 
 ## Working on this repository
 
