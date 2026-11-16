@@ -273,17 +273,35 @@ test('confirm records that the user tried it, and shows in SCOPE.md and next', (
   assert.match(run(dir, ['next']).out, /Everything agreed is built/);
 });
 
-test('no new promise can be started while three built ones wait for the user to try them', () => {
-  const dir = approvedProject(['one', 'two', 'three', 'four']);
+test('no new promise can be started while five built ones wait for the user to try them', () => {
+  const dir = approvedProject(['one', 'two', 'three', 'four', 'five', 'six']);
   let tests = [];
-  for (const id of ['S1', 'S2', 'S3']) tests = build(dir, id, tests);
+  for (const id of ['S1', 'S2', 'S3', 'S4']) tests = build(dir, id, tests);
+  assert.match(run(dir, ['next']).out, /Next is S5/, 'four waiting is not yet a reason to stop');
+  tests = build(dir, 'S5', tests);
   assert.match(run(dir, ['next']).out, /Ask the user to try/);
-  setTests(dir, [...tests, { name: '[S4] works', status: 'failed' }]);
-  const blocked = run(dir, ['red', 'S4']);
+  setTests(dir, [...tests, { name: '[S6] works', status: 'failed' }]);
+  const blocked = run(dir, ['red', 'S6']);
   assert.equal(blocked.code, 1);
-  assert.match(blocked.out, /has not tried S1, S2, S3/);
+  assert.match(blocked.out, /has not tried S1, S2, S3, S4, S5/);
   run(dir, ['confirm', 'S1,S2']);
-  assert.equal(run(dir, ['red', 'S4']).code, 0);
+  assert.equal(run(dir, ['red', 'S6']).code, 0);
+});
+
+test('save: says to keep building while more is planned, and to stop for the user only at a check-in point', () => {
+  const dir = approvedProject(['one', 'two']);
+  setTests(dir, [{ name: '[S1] works', status: 'failed' }]);
+  run(dir, ['red', 'S1']);
+  setTests(dir, [{ name: '[S1] works', status: 'passed' }]);
+  const first = run(dir, ['save', 'build S1', '--for', 'S1']);
+  assert.match(first.out, /Do not stop to ask the user yet[\s\S]*vibe-rails next/);
+  assert.doesNotMatch(first.out, /confirm/);
+
+  setTests(dir, [{ name: '[S1] works', status: 'passed' }, { name: '[S2] works', status: 'failed' }]);
+  run(dir, ['red', 'S2']);
+  setTests(dir, [{ name: '[S1] works', status: 'passed' }, { name: '[S2] works', status: 'passed' }]);
+  const last = run(dir, ['save', 'build S2', '--for', 'S2']);
+  assert.match(last.out, /Now stop and let the user try everything that is waiting, in one message[\s\S]*vibe-rails confirm S1,S2/);
 });
 
 test('save: blocked when the test of a built promise is changed in a save about something else', () => {

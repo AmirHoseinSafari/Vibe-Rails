@@ -57,7 +57,7 @@ my-app/
 ```
 
 - `testPrint` is a fingerprint of the item's tests, recorded when it is saved (`testFingerprints()` in `src/lib/tests.js`). A test's text is the line carrying the tag plus the more-indented lines below it. `save` refuses if a `done` item's fingerprint changed and the item is not in `--for`. Limits: it does not see changes to shared helpers or setup files.
-- `confirmed` is set by `vibe-rails confirm` when the user tried it. `red` refuses to start a new item while `MAX_UNTRIED` (3) done items are unconfirmed. Re-saving an item with a changed test clears it.
+- `confirmed` is set by `vibe-rails confirm` when the user tried it. `red` refuses to start a new item while `MAX_UNTRIED` (5) done items are unconfirmed. `save` and `next` tell the AI to keep building until that point or until nothing is planned, so the user is asked to try things in batches, not after every promise. Re-saving an item with a changed test clears it.
 
 `planned` → (`vibe-rails red`, the tagged test fails) → `red` → (`vibe-rails save --for`, the gate passes) → `done`.
 

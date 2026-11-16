@@ -22,7 +22,7 @@ export const TOPICS = [
 export class UserError extends Error {}
 
 // How many built promises may wait for the user to try them before new ones are blocked.
-export const MAX_UNTRIED = 3;
+export const MAX_UNTRIED = 5;
 
 export function slugify(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'app';
