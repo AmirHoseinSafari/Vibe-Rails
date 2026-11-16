@@ -17,7 +17,7 @@ const HELP = `vibe-rails: guard rails for vibe coding
   scope drop <id> "<reason>"        remove one
   mockup show | approve             show the clickable mock-up; record the user's yes
   approve                           the user approved the plan; unlock building
-  red <id> [--already-works "why"]  prove the new test for <id> fails first
+  red <ids> [--already-works "why"] prove the new tests fail first (up to three promises)
   test                              run the tests
   check                             run the gate without saving
   save "<what changed>" --for <ids> | --tweak

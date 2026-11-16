@@ -5,7 +5,7 @@ A Claude Code plugin that lets non-technical people build apps with the discipli
 ## Run and test
 
 ```bash
-npm test                      # 34 end-to-end tests, about 30 seconds, no install needed
+npm test                      # 36 end-to-end tests, about 30 seconds, no install needed
 bin/vibe-rails help           # the tool itself
 claude --plugin-dir .         # load this copy as a plugin in Claude Code
 ```
@@ -52,6 +52,7 @@ bin/vibe-rails init /tmp/demo --name "Demo" && cd /tmp/demo && /path/to/bin/vibe
 - **Show before build:** a clickable mock-up (`mockup/index.html`) must be approved before the plan can be.
 - **The user confirms each promise** (`confirm`); at most five may wait untried, so the AI cannot run far ahead on a wrong reading.
 - **Few stops while building** (owner decision, 2026-11-15, after the owner's own run by hand): the interview stays thorough, but during the build the AI does not check in after every promise. `save` and `next` tell it to carry on until five built promises are waiting or nothing is left, then ask the user to try them all in one message. This also costs less: every extra turn re-reads the whole conversation.
+- **Token cost is a product requirement** (owner decision, 2026-11-15). The guarantees stay (interview, mock-up and promises each approved, a failing test before code, the gate before every save), but the flow is cut to few turns and few tool calls: interview questions come two or three topics at a time with one confirmation at the review; the plan, mock-up and promises are shown together; commands print the step that follows (`nextLines` in `src/commands.js`) so `next` is rarely called; `red` takes up to three related promises; `stack.json` `notes` describe the starter so the AI does not read it. When changing prompts or command output, count the turns and tool calls a change adds.
 - **A built promise's test is fingerprinted**; changing it needs a save that names the promise.
 - **Undo keeps promises and answers** and only throws away app files, with a backup ref.
 - **Online backup is a suggestion, not a step** (owner decision, 2026-11-11). The AI offers it once, as three choices without steering: keep it local (`connect --local`), create the repository themselves (`connect --manual`, then `connect <url>`), or automatic (`connect --auto`). The automatic route needs GitHub's broad `repo` permission and the user must be told that before authorising. The local git repository is always there, because saving, the gate and undo depend on it, but the user never has to know.
@@ -65,6 +66,8 @@ bin/vibe-rails init /tmp/demo --name "Demo" && cd /tmp/demo && /path/to/bin/vibe
 Done and tested: the tool, both hook layers, three skills, the `web-basic` template (played through a full loop with real Vitest), mock-up approval, try-it confirmation, the weakened-test guard, undo, GitHub connect (against a fake GitHub), the test pipeline (pre-commit hook verified to block a failing commit; the CI workflow has not run yet because nothing is pushed). `claude plugin validate .` passes with two warnings (no icon; this file is not shipped as plugin context, which is intended).
 
 Live-tested on 2026-11-11 (headless Claude Code 2.1.322, Sonnet, Claude playing the user): skills trigger from a plain request, the full flow from interview to built promises works, and all three hook refusals reach the model. That run led to `vibe-rails preview`. To repeat it: `claude -p "<user message>" --plugin-dir . --model sonnet --permission-mode acceptEdits --allowedTools Bash Read Write Edit Glob Grep Skill --output-format stream-json --verbose`, then `--resume <session id>` for each further user turn.
+
+Cost measured on 2026-11-15 (one run each, Sonnet, Claude playing the user, a plant-watering app): the first build plus two changes cost $0.24 without the plugin, $1.45 with it before the token work and $0.76 after (8 user turns instead of 16, 41 tool calls instead of 64). Ten further changes cost $0.49 without and $1.05 with. Both final apps then passed the same 20-point checklist (19 and 20), so at this size the plugin costs about 2.5 times more and no saving from fewer breakages showed up. Do not claim it saves tokens. A larger app has not been measured.
 
 Not verified: a run by hand in the desktop app, `connect --auto` against the real GitHub (the app is registered and its Client ID is built in; GitHub accepts the code request, but nobody has signed in, created a repository or renewed a sign-in for real yet), and any run with a real non-technical user. See [TODO.md](TODO.md).
 
