@@ -99,7 +99,7 @@ test('approve is refused until every interview topic and at least one promise ex
 
 test('next walks through interview, promises, approval and the build loop', () => {
   const dir = newProject();
-  assert.match(run(dir, ['next']).out, /purpose \(ask\)/);
+  assert.match(run(dir, ['next']).out, /- purpose:/);
   for (const topic of TOPICS) run(dir, ['brief', 'set', topic.id, 'answer']);
   assert.match(run(dir, ['next']).out, /mockup\/index\.html/);
   assert.match(run(dir, ['mockup', 'show']).out, /no mock-up yet/);
@@ -111,6 +111,63 @@ test('next walks through interview, promises, approval and the build loop', () =
   assert.match(run(dir, ['next']).out, /vibe-rails approve/);
   run(dir, ['approve']);
   assert.match(run(dir, ['next']).out, /Next is S1/);
+});
+
+test('interview: questions come in groups, and the plan, mock-up and promises are reviewed together', () => {
+  const dir = newProject();
+  const asking = run(dir, ['next']).out;
+  assert.match(asking, /two or three related topics in one message/);
+  assert.match(asking, /Do not ask for a yes after every answer/);
+  assert.doesNotMatch(asking, /- plan:/, 'the plan is written by the AI, not asked');
+
+  const toAsk = TOPICS.filter((t) => t.by === 'user');
+  for (const topic of toAsk.slice(0, -1)) assert.match(run(dir, ['brief', 'set', topic.id, 'answer']).out, /Still to ask/);
+  // The last answer leads straight into the review, without a separate call to ask what is next.
+  const review = run(dir, ['brief', 'set', toAsk.at(-1).id, 'answer']).out;
+  assert.match(review, /one review[\s\S]*brief set plan[\s\S]*mockup\/index\.html[\s\S]*scope add[\s\S]*mockup approve[\s\S]*vibe-rails approve/);
+
+  // Both approvals are still needed, each on its own command.
+  run(dir, ['brief', 'set', 'plan', 'the plan']);
+  run(dir, ['scope', 'add', 'A person can add a task']);
+  writeMockup(dir);
+  assert.match(run(dir, ['approve']).out, /has not approved a mock-up/);
+  run(dir, ['mockup', 'approve']);
+  const approved = run(dir, ['approve']);
+  assert.equal(approved.code, 0, approved.out);
+  assert.match(approved.out, /About the starter[\s\S]*Next is S1/, 'approval prints the first build step and the starter notes');
+});
+
+test('build: related promises can be proven and saved together, at most three, each with its own failing test', () => {
+  const dir = approvedProject(['one', 'two', 'three', 'four']);
+  assert.match(run(dir, ['next']).out, /vibe-rails red S1 S2 S3[\s\S]*--for S1,S2,S3/);
+
+  setTests(dir, [{ name: '[S1] works', status: 'failed' }]);
+  const missing = run(dir, ['red', 'S1', 'S2']);
+  assert.equal(missing.code, 1);
+  assert.match(missing.out, /No test has \[S2\]/);
+  assert.match(run(dir, ['scope', 'list']).out, /S1 planned/, 'nothing is recorded unless every promise has a failing test');
+
+  setTests(dir, [{ name: '[S1] works', status: 'failed' }, { name: '[S2] works', status: 'passed' }]);
+  assert.match(run(dir, ['red', 'S1', 'S2']).out, /test for S2 already passes/);
+  assert.match(run(dir, ['red', 'S1', 'S2', 'S3', 'S4']).out, /at most 3/);
+
+  setTests(dir, [{ name: '[S1] works', status: 'failed' }, { name: '[S2] works', status: 'failed' }]);
+  const proven = run(dir, ['red', 'S1', 'S2']);
+  assert.equal(proven.code, 0, proven.out);
+  assert.match(proven.out, /--for S1,S2/);
+  assert.match(run(dir, ['next']).out, /Build S1: one\nBuild S2: two[\s\S]*--for S1,S2/);
+
+  setTests(dir, [{ name: '[S1] works', status: 'passed' }, { name: '[S2] works', status: 'failed' }]);
+  assert.equal(run(dir, ['save', 'both', '--for', 'S1,S2']).code, 1, 'the gate still needs every test to pass');
+  setTests(dir, [{ name: '[S1] works', status: 'passed' }, { name: '[S2] works', status: 'passed' }]);
+  const saved = run(dir, ['save', 'both', '--for', 'S1,S2']);
+  assert.equal(saved.code, 0, saved.out);
+  assert.match(saved.out, /Next is S3/);
+  assert.doesNotMatch(saved.out, /About the starter/, 'the starter notes are only shown before the first build');
+  assert.match(gitLog(dir), /Scope: S1, S2/);
+
+  const tried = run(dir, ['confirm', 'S1,S2']);
+  assert.match(tried.out, /Recorded: the user tried S1, S2[\s\S]*Next is S3/, 'confirming prints the next step');
 });
 
 test('before approval: code edits are blocked, and so are build commands', () => {
@@ -294,7 +351,7 @@ test('save: says to keep building while more is planned, and to stop for the use
   run(dir, ['red', 'S1']);
   setTests(dir, [{ name: '[S1] works', status: 'passed' }]);
   const first = run(dir, ['save', 'build S1', '--for', 'S1']);
-  assert.match(first.out, /Do not stop to ask the user yet[\s\S]*vibe-rails next/);
+  assert.match(first.out, /Do not stop to ask the user yet[\s\S]*Next is S2: two/, 'the next step is given straight away');
   assert.doesNotMatch(first.out, /confirm/);
 
   setTests(dir, [{ name: '[S1] works', status: 'passed' }, { name: '[S2] works', status: 'failed' }]);

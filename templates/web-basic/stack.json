@@ -7,6 +7,15 @@
     "test": "npx vitest run --reporter=json --outputFile=.vibe-rails/tmp/report.json",
     "dev": "npm run dev"
   },
-  "report": { "format": "jest-json", "file": ".vibe-rails/tmp/report.json" },
-  "testMatch": "\\.test\\.[jt]sx?$"
+  "report": {
+    "format": "jest-json",
+    "file": ".vibe-rails/tmp/report.json"
+  },
+  "testMatch": "\\.test\\.[jt]sx?$",
+  "notes": [
+    "About the starter app (no need to read these files):",
+    "- src/App.tsx is one React component that shows the app's name in an <h1>. src/main.tsx mounts it; leave that as it is. There is no CSS file yet: add src/App.css and import it in App.tsx.",
+    "- src/App.test.tsx has one test, 'the app opens' (it looks for the <h1>). Keep it and add your tests to that file.",
+    "- Tests use Vitest with test and expect available everywhere, plus Testing Library: import { render, screen } from '@testing-library/react' and userEvent from '@testing-library/user-event'. Each test starts with an empty localStorage and a clean page."
+  ]
 }

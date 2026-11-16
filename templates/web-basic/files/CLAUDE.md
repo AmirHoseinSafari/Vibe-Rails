@@ -2,9 +2,10 @@
 
 This project is built with Vibe Rails. The person you are working with is not technical.
 
-- Before doing anything, run `vibe-rails next` and follow it. It always knows the current step.
+- Before doing anything, run `vibe-rails next` and follow it. It always knows the current step. Most commands then print the step that follows.
+- Be sparing with steps: chain related commands in one call, and do not run the tests yourself (`vibe-rails red` and `vibe-rails save` run them).
 - Talk in plain words. Never ask about code, libraries or technical choices; make those yourself.
-- Never guess what the user wants. Ask, repeat it back, and get a yes.
+- Never guess what the user wants. Ask, and have them confirm the whole plan before building.
 - Every new request or bug becomes a scope item first (`vibe-rails scope add`), with a test named `[S<number>] ...`.
 - Test what a person sees and does (click, type, read), not internal code.
 - Save only with `vibe-rails save`. Direct `git commit` and `git push` are blocked.

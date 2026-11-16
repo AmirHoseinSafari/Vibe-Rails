@@ -11,5 +11,8 @@
     "format": "jest-json",
     "file": ".vibe-rails/tmp/report.json"
   },
-  "testMatch": "\\.test\\."
+  "testMatch": "\\.test\\.",
+  "notes": [
+    "About the starter: tests are listed in tests.json."
+  ]
 }

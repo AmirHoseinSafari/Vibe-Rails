@@ -79,6 +79,7 @@ export function init({ args, flags }) {
     commands: stack.commands,
     report: stack.report,
     testMatch: stack.testMatch,
+    notes: stack.notes,
   };
   writeJson(path.join(target, DIR, 'config.json'), config);
   fs.writeFileSync(path.join(target, DIR, '.gitignore'), 'tmp/\n');
@@ -129,8 +130,9 @@ export function brief({ args }) {
   if (!topic) throw new UserError(`Unknown topic "${args[1]}". Topics: ${TOPICS.map((t) => t.id).join(', ')}`);
   state.brief[topic.id] = textArg(args[2], 'the answer');
   saveState(root, config, state);
-  const left = missingTopics(state).map((t) => t.id);
-  say(`Recorded ${topic.id}.${left.length ? ' Still to cover: ' + left.join(', ') : ' All topics covered. Run: vibe-rails next'}`);
+  // While the user still has questions to answer, stay brief. Once they are done, say what comes next.
+  const toAsk = missingTopics(state).filter((t) => t.by === 'user').map((t) => t.id);
+  say(...(toAsk.length ? [`Recorded ${topic.id}. Still to ask: ${toAsk.join(', ')}`] : [`Recorded ${topic.id}.`, ...nextLines(root, config, state)]));
   return 0;
 }
 
@@ -212,7 +214,7 @@ export function mockup({ args }) {
   if (args[0] === 'approve') {
     state.mockup = { approved: today(), hash };
     saveState(root, config, state);
-    say('Mock-up approved. Run: vibe-rails next');
+    say('Mock-up approved.', ...nextLines(root, config, state));
     return 0;
   }
   throw new UserError('Use: vibe-rails mockup show  or  vibe-rails mockup approve');
@@ -241,7 +243,7 @@ export function approve() {
   saveState(root, config, state);
   git(root, ['add', '-A']);
   git(root, ['commit', '--no-verify', '-m', 'Plan approved']);
-  say('Plan approved. Building is unlocked. Run: vibe-rails next');
+  say('Plan approved. Building is unlocked.', ...nextLines(root, config, state, { backup: false }));
   return 0;
 }
 
@@ -251,40 +253,56 @@ function requireBuild(state) {
   if (state.phase !== 'build') throw new UserError('The plan is not approved yet. Run: vibe-rails next');
 }
 
+// How many promises may be proven and built in one go.
+const MAX_TOGETHER = 3;
+
 export function red({ args, flags }) {
   const { root, config, state } = open();
   requireBuild(state);
-  const item = findItem(state, args[0]);
-  if (item.status === 'done') throw new UserError(`${item.id} is already built. For a change in behaviour, add a new scope item.`);
-  if (item.status === 'dropped') throw new UserError(`${item.id} was removed from the scope.`);
+  const ids = args.flatMap((a) => a.split(',')).map((id) => id.trim()).filter(Boolean);
+  const items = (ids.length ? ids : [undefined]).map((id) => findItem(state, id));
+  if (items.length > MAX_TOGETHER) throw new UserError(`Build at most ${MAX_TOGETHER} promises in one go, so a mistake stays small.`);
+  for (const item of items) {
+    if (item.status === 'done') throw new UserError(`${item.id} is already built. For a change in behaviour, add a new scope item.`);
+    if (item.status === 'dropped') throw new UserError(`${item.id} was removed from the scope.`);
+  }
   const waiting = untried(state);
-  if (item.status === 'planned' && waiting.length >= MAX_UNTRIED) {
+  if (items.some((i) => i.status === 'planned') && waiting.length >= MAX_UNTRIED) {
     throw new UserError(
       `The user has not tried ${waiting.map((i) => i.id).join(', ')} yet. Let them try those before building more. Run: vibe-rails next`,
     );
   }
 
-  const outcome = itemResult(runTests(root, config), item.id);
-  if (outcome === 'missing') throw new UserError(`No test has [${item.id}] in its name. Write one that checks: ${item.text}`);
-  if (outcome === 'skipped') throw new UserError(`The test for ${item.id} is switched off (skipped). Switch it on.`);
-  if (outcome === 'passed') {
-    if (flags['already-works'] === undefined) {
+  // Every promise must have its own failing test before anything is recorded.
+  const results = runTests(root, config);
+  const outcomes = items.map((item) => itemResult(results, item.id));
+  items.forEach((item, n) => {
+    if (outcomes[n] === 'missing') throw new UserError(`No test has [${item.id}] in its name. Write one that checks: ${item.text}`);
+    if (outcomes[n] === 'skipped') throw new UserError(`The test for ${item.id} is switched off (skipped). Switch it on.`);
+    if (outcomes[n] === 'passed' && flags['already-works'] === undefined) {
       throw new UserError(
         `The test for ${item.id} already passes, so it does not prove anything yet. ` +
         `If the app really did this already, run: vibe-rails red ${item.id} --already-works "<why>". Otherwise make the test stricter.`,
       );
     }
-    item.red = { at: today(), mode: 'already-works', note: textArg(flags['already-works'], 'the reason') };
-  } else {
-    item.red = { at: today(), mode: 'failed' };
-  }
-  item.status = 'red';
+  });
+  items.forEach((item, n) => {
+    item.red = outcomes[n] === 'passed'
+      ? { at: today(), mode: 'already-works', note: textArg(flags['already-works'], 'the reason') }
+      : { at: today(), mode: 'failed' };
+    item.status = 'red';
+  });
   saveState(root, config, state);
-  say(
-    outcome === 'passed'
-      ? `${item.id} recorded as already working. Save with: vibe-rails save "<what changed>" --for ${item.id}`
-      : `${item.id} test fails as it should. Now build it until the test passes, then: vibe-rails save "<what changed>" --for ${item.id}`,
-  );
+  const all = items.map((i) => i.id).join(',');
+  if (items.length > 1) {
+    say(`The tests for ${items.map((i) => i.id).join(', ')} are proven. Now build them until the tests pass, then: vibe-rails save "<what changed>" --for ${all}`);
+  } else {
+    say(
+      outcomes[0] === 'passed'
+        ? `${all} recorded as already working. Save with: vibe-rails save "<what changed>" --for ${all}`
+        : `${all} test fails as it should. Now build it until the test passes, then: vibe-rails save "<what changed>" --for ${all}`,
+    );
+  }
   return 0;
 }
 
@@ -364,7 +382,7 @@ export async function save({ args, flags }) {
     const waiting = untried(state);
     const more = state.scope.some((i) => i.status === 'planned' || i.status === 'red');
     if (more && waiting.length < MAX_UNTRIED) {
-      lines.push('Do not stop to ask the user yet. Tell them in one short line what now works, then carry on: vibe-rails next');
+      lines.push('Do not stop to ask the user yet. Tell them in one short line what now works, then carry on.', ...nextLines(root, config, state, { backup: false }));
     } else {
       lines.push(`Now stop and let the user try everything that is waiting, in one message (vibe-rails preview). When they say it works, run: vibe-rails confirm ${waiting.map((i) => i.id).join(',')}`);
     }
@@ -381,7 +399,7 @@ export function confirm({ args }) {
   }
   for (const item of items) item.confirmed = today();
   saveState(root, config, state);
-  say(`Recorded: the user tried ${items.map((i) => i.id).join(', ')} and it works. Run: vibe-rails next`);
+  say(`Recorded: the user tried ${items.map((i) => i.id).join(', ')} and it works.`, ...nextLines(root, config, state));
   return 0;
 }
 
@@ -712,28 +730,43 @@ export function status() {
 }
 
 // The single source of truth for "what now". Skills stay short because they defer to this.
-export function next() {
-  const { config, state } = open();
-  const lines = [statusLine(config, state)];
+// What to do now. Other commands print this after their own result, so the AI rarely needs a separate call
+// to ask (every extra call re-reads the whole conversation, which is what costs tokens).
+function nextLines(root, config, state, { backup = true } = {}) {
+  const lines = [];
 
   if (state.phase === 'interview') {
     const missing = missingTopics(state);
-    if (missing.length) {
-      lines.push('Cover these with the user, one at a time, in plain words. Record each when the user has confirmed your summary of it:');
-      for (const t of missing) {
-        lines.push(`- ${t.id} (${t.by === 'user' ? 'ask' : 'you write, user confirms'}): ${t.hint}`);
-      }
-      lines.push('Record with: vibe-rails brief set <topic> "<answer>"');
-    } else if (!mockupApproved(open().root, state)) {
+    const toAsk = missing.filter((t) => t.by === 'user');
+    if (toAsk.length) {
       lines.push(
-        `Show before building. Write a mock-up as one self-contained file, ${MOCKUP}: every screen, clickable between screens,`,
-        'made-up example data, the agreed look, nothing really saved. Then run: vibe-rails mockup show',
-        'Change it until the user is happy. Only on a clear yes: vibe-rails mockup approve',
+        'Cover these with the user in plain words. Ask about two or three related topics in one message, so the interview takes few rounds.',
+        'Record an answer as soon as it is clear; ask again only about what is vague or missing. Do not ask for a yes after every answer:',
+        'the user confirms everything once, when you read the plan back.',
       );
-    } else if (!state.scope.length) {
+      for (const t of toAsk) lines.push(`- ${t.id}: ${t.hint}`);
+      lines.push('Record with: vibe-rails brief set <topic> "<answer>"   (chain several in one command)');
+    } else if (missing.length || !mockupApproved(root, state) || !state.scope.length) {
+      lines.push('Prepare one review for the user, in this order, then show it all in one message:');
+      if (missing.length) {
+        lines.push('- Your build plan in plain words, with what it will not be able to do: vibe-rails brief set plan "<plan>"');
+      }
+      if (!mockupApproved(root, state)) {
+        lines.push(
+          `- A mock-up as one self-contained file, ${MOCKUP}: every screen, clickable between screens, made-up example data,`,
+          '  the agreed look, nothing really saved. Keep it small: it shows the idea, it is not the app. Then: vibe-rails mockup show',
+        );
+      }
+      if (!state.scope.length) {
+        lines.push(
+          '- The promises: one short plain sentence each, about something a person can see or do.',
+          '  Add each with: vibe-rails scope add "<promise>"   (chain them in one command)',
+        );
+      }
       lines.push(
-        'Turn the answers into promises: one short plain sentence each, about something a person can see or do.',
-        'Add each with: vibe-rails scope add "<promise>"   then run vibe-rails next',
+        'In the message: what you understood in a few lines, the plan, the promises as a numbered list, and what to click in the mock-up.',
+        'Ask what they would change, and change it. On a clear yes to the mock-up: vibe-rails mockup approve',
+        'On a clear yes to the promises and the plan: vibe-rails approve   (one reply from the user can give both)',
       );
     } else {
       lines.push(
@@ -741,45 +774,60 @@ export function next() {
         'Change anything they correct. Only when they clearly say yes, run: vibe-rails approve',
       );
     }
-  } else {
-    const live = (status) => state.scope.filter((i) => i.status === status);
-    const [inProgress] = live('red');
-    const [planned] = live('planned');
-    const waiting = untried(state);
-    const askToTry = () => lines.push(
+    return lines;
+  }
+
+  const live = (status) => state.scope.filter((i) => i.status === status);
+  const inProgress = live('red');
+  const planned = live('planned');
+  const waiting = untried(state);
+  if (inProgress.length) {
+    const ids = inProgress.map((i) => i.id).join(',');
+    lines.push(
+      ...inProgress.map((i) => `Build ${i.id}: ${i.text}`),
+      `${inProgress.length > 1 ? 'Their tests are' : 'Its test is'} proven. Write the code until ${inProgress.length > 1 ? 'they pass' : 'it passes'}, then: vibe-rails save "<what changed>" --for ${ids}`,
+    );
+  } else if (waiting.length >= MAX_UNTRIED || (waiting.length && !planned.length)) {
+    lines.push(
       'Ask the user to try what was built, all of it in one message. Start it with: vibe-rails preview   then tell them exactly what to click for each:',
       ...waiting.map((i) => `- ${i.id}: ${i.text}`),
       'For each one they say works: vibe-rails confirm <ids>. If one is not what they meant: vibe-rails scope add --bug "<what should happen instead>"',
     );
-    if (inProgress) {
+  } else if (planned.length) {
+    const [first, ...rest] = planned;
+    if (!state.scope.some((i) => i.status === 'done') && config.notes?.length) lines.push(...config.notes);
+    lines.push(
+      `Next is ${first.id}: ${first.text}`,
+      `1. Write a test that checks it as a user would. Put [${first.id}] in the test's name.`,
+      `2. Prove it fails: vibe-rails red ${first.id}`,
+      `3. Write the code, then: vibe-rails save "<what changed>" --for ${first.id}   (save runs the tests; do not run them yourself)`,
+    );
+    if (rest.length) {
+      const group = planned.slice(0, MAX_TOGETHER).map((i) => i.id);
       lines.push(
-        `Build ${inProgress.id}: ${inProgress.text}`,
-        `Its test is proven. Write the code until it passes, then: vibe-rails save "<what changed>" --for ${inProgress.id}`,
-      );
-    } else if (waiting.length >= MAX_UNTRIED || (waiting.length && !planned)) {
-      askToTry();
-    } else if (planned) {
-      lines.push(
-        `Next is ${planned.id}: ${planned.text}`,
-        `1. Write a test that checks it as a user would. Put [${planned.id}] in the test's name.`,
-        `2. Prove it fails: vibe-rails red ${planned.id}`,
-        `3. Write the code, then: vibe-rails save "<what changed>" --for ${planned.id}`,
-        'Keep going without asking the user to try anything yet; this tool says when it is time.',
-      );
-    } else {
-      lines.push(
-        'Everything agreed is built and checked.',
-        'Let the user try it (vibe-rails preview) and ask what they think.',
-        'New request: vibe-rails scope add "<promise>".  Something broken: vibe-rails scope add --bug "<what should happen instead>".',
+        `Promises that belong together can be built in one go, at most ${MAX_TOGETHER}: a test for each, then vibe-rails red ${group.join(' ')}`,
+        `and one save --for ${group.join(',')}. After ${first.id}: ${rest.slice(0, MAX_TOGETHER).map((i) => `${i.id}: ${i.text}`).join(' | ')}`,
       );
     }
-    if (!hasRemote(open().root) && state.backup !== 'local') {
-      lines.push(
-        'Optional, ask once at a calm moment: would the user like an online backup of the project? It is their choice.',
-        'Run vibe-rails connect to get the choices to offer them (keep it local, do it themselves, or automatic). This reminder stops once they choose.',
-      );
-    }
+    lines.push('Keep going without asking the user to try anything yet; this tool says when it is time.');
+  } else {
+    lines.push(
+      'Everything agreed is built and checked.',
+      'Let the user try it (vibe-rails preview) and ask what they think.',
+      'New request: vibe-rails scope add "<promise>".  Something broken: vibe-rails scope add --bug "<what should happen instead>".',
+    );
   }
-  say(...lines);
+  if (backup && !hasRemote(root) && state.backup !== 'local') {
+    lines.push(
+      'Optional, ask once at a calm moment: would the user like an online backup of the project? It is their choice.',
+      'Run vibe-rails connect to get the choices to offer them (keep it local, do it themselves, or automatic). This reminder stops once they choose.',
+    );
+  }
+  return lines;
+}
+
+export function next() {
+  const { root, config, state } = open();
+  say(statusLine(config, state), ...nextLines(root, config, state));
   return 0;
 }
