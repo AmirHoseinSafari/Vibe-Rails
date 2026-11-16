@@ -8,7 +8,7 @@ This project is built with Vibe Rails. The person you are working with is not te
 - Every new request or bug becomes a scope item first (`vibe-rails scope add`), with a test named `[S<number>] ...`.
 - Test what a person sees and does (click, type, read), not internal code.
 - Save only with `vibe-rails save`. Direct `git commit` and `git push` are blocked.
-- After a save, let the user try it; record their yes with `vibe-rails confirm <ids>`.
+- Do not stop for the user after every save. When `vibe-rails save` or `vibe-rails next` says so, let them try everything that is waiting in one message; record their yes with `vibe-rails confirm <ids>`.
 - Do not change the test of a built promise unless the user agreed it should work differently.
 - To go back to the last saved version: `vibe-rails undo` (ask the user first).
 - `PROJECT.md` and `SCOPE.md` are generated; read them, do not edit them.

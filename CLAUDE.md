@@ -5,7 +5,7 @@ A Claude Code plugin that lets non-technical people build apps with the discipli
 ## Run and test
 
 ```bash
-npm test                      # 33 end-to-end tests, about 30 seconds, no install needed
+npm test                      # 34 end-to-end tests, about 30 seconds, no install needed
 bin/vibe-rails help           # the tool itself
 claude --plugin-dir .         # load this copy as a plugin in Claude Code
 ```
@@ -50,7 +50,8 @@ bin/vibe-rails init /tmp/demo --name "Demo" && cd /tmp/demo && /path/to/bin/vibe
 - **One source of truth for the process:** `vibe-rails next`. Skills defer to it to save tokens.
 - **"Skip the questions" is allowed as a draft:** if the user asks, the AI may draft all interview answers at once, marks its guesses, and records nothing until the user confirms. The mock-up and the promise list still need their own yes (owner decision, 2026-11-11).
 - **Show before build:** a clickable mock-up (`mockup/index.html`) must be approved before the plan can be.
-- **The user confirms each promise** (`confirm`); at most three may wait untried, so the AI cannot run far ahead on a wrong reading.
+- **The user confirms each promise** (`confirm`); at most five may wait untried, so the AI cannot run far ahead on a wrong reading.
+- **Few stops while building** (owner decision, 2026-11-15, after the owner's own run by hand): the interview stays thorough, but during the build the AI does not check in after every promise. `save` and `next` tell it to carry on until five built promises are waiting or nothing is left, then ask the user to try them all in one message. This also costs less: every extra turn re-reads the whole conversation.
 - **A built promise's test is fingerprinted**; changing it needs a save that names the promise.
 - **Undo keeps promises and answers** and only throws away app files, with a backup ref.
 - **Online backup is a suggestion, not a step** (owner decision, 2026-11-11). The AI offers it once, as three choices without steering: keep it local (`connect --local`), create the repository themselves (`connect --manual`, then `connect <url>`), or automatic (`connect --auto`). The automatic route needs GitHub's broad `repo` permission and the user must be told that before authorising. The local git repository is always there, because saving, the gate and undo depend on it, but the user never has to know.

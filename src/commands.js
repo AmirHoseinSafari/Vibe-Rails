@@ -360,7 +360,14 @@ export async function save({ args, flags }) {
     lines.push(state.backup === 'local' ? 'Saved on this computer.' : 'Saved on this computer. (Online backup is optional: vibe-rails next explains.)');
   }
   if (items.length) {
-    lines.push(`Now let the user try it (vibe-rails preview). When they say it works, run: vibe-rails confirm ${items.map((i) => i.id).join(',')}`);
+    // Checking in after every promise wears the user out. Stop only when enough is waiting, or nothing is left to build.
+    const waiting = untried(state);
+    const more = state.scope.some((i) => i.status === 'planned' || i.status === 'red');
+    if (more && waiting.length < MAX_UNTRIED) {
+      lines.push('Do not stop to ask the user yet. Tell them in one short line what now works, then carry on: vibe-rails next');
+    } else {
+      lines.push(`Now stop and let the user try everything that is waiting, in one message (vibe-rails preview). When they say it works, run: vibe-rails confirm ${waiting.map((i) => i.id).join(',')}`);
+    }
   }
   say(...lines);
   return 0;
@@ -740,7 +747,7 @@ export function next() {
     const [planned] = live('planned');
     const waiting = untried(state);
     const askToTry = () => lines.push(
-      'Ask the user to try what was built. Start it with: vibe-rails preview   then tell them exactly what to click for each:',
+      'Ask the user to try what was built, all of it in one message. Start it with: vibe-rails preview   then tell them exactly what to click for each:',
       ...waiting.map((i) => `- ${i.id}: ${i.text}`),
       'For each one they say works: vibe-rails confirm <ids>. If one is not what they meant: vibe-rails scope add --bug "<what should happen instead>"',
     );
@@ -757,6 +764,7 @@ export function next() {
         `1. Write a test that checks it as a user would. Put [${planned.id}] in the test's name.`,
         `2. Prove it fails: vibe-rails red ${planned.id}`,
         `3. Write the code, then: vibe-rails save "<what changed>" --for ${planned.id}`,
+        'Keep going without asking the user to try anything yet; this tool says when it is time.',
       );
     } else {
       lines.push(

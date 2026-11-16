@@ -50,7 +50,7 @@ Later, in the project folder:
 | No code before the plan is approved | A Claude Code hook refuses file edits (except the mock-up) until `vibe-rails approve` |
 | The plan includes a mock-up you approved | `vibe-rails approve` fails without one, or if it changed after your yes |
 | A built promise's test is not quietly weakened | `vibe-rails save` fails if that test changed and the save is not about that promise |
-| You try what was built | `vibe-rails red` refuses new work while three built promises are untried |
+| You try what was built | `vibe-rails red` refuses new work while five built promises are untried |
 | Every promise has a test | `vibe-rails save` and the git hooks fail if a promise has no passing test tagged with its id |
 | A test must fail before the code exists | `vibe-rails red <id>` runs the tests and refuses a test that already passes |
 | Nothing is saved with failing tests | git `pre-commit` and `pre-push` hooks run the gate; direct `git commit`/`git push` by the AI is refused |
