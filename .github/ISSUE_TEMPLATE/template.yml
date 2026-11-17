@@ -1,0 +1,18 @@
+name: New kind of app (project template)
+description: Propose or offer a template for another kind of app, such as a site with accounts or a Python web app.
+labels: [template]
+body:
+  - type: textarea
+    attributes:
+      label: What kind of app should it build?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Which tools would it use, and how are its tests run?
+      description: The test runner needs to report each test by name so the gate can match tests to promises. See CONTRIBUTING.md.
+  - type: checkboxes
+    attributes:
+      label: Help
+      options:
+        - label: I would like to build this myself
