@@ -65,11 +65,13 @@ Still open from this test:
 
 ## 6. Make the repository look alive (before going public)
 
-- [ ] One-line pitch at the top of the README, for people who cannot code (for example: "Vibe coding with a seatbelt: the AI can't save code that fails its tests")
+Ready-to-paste texts and step-by-step instructions for sections 6 to 8 are in [docs/LAUNCH.md](docs/LAUNCH.md).
+
+- [x] One-line pitch at the top of the README, with the install lines, who it is for, and what it costs
 - [ ] 60–90 second demo recording at the top of the README: describing an app in plain words, the mock-up appearing, Claude being refused when it tries to skip a test
-- [ ] Plugin icon: square PNG, 512px or larger, at `.claude-plugin/icon.png`
+- [x] Plugin icon at `.claude-plugin/icon.png` (source: `assets/icon.svg`)
 - [ ] Repository description and topics on GitHub (`vibe-coding`, `claude-code`, `claude-code-plugin`, `tdd`)
-- [ ] Issue templates (bug, idea, new template)
+- [x] Issue templates (bug, idea, new template)
 - [ ] Five or six "good first issue" tickets from the roadmap (other templates, adapters for Cursor or Codex, Windows launcher)
 - [ ] Tag and publish release v0.1.0
 - [ ] Decide the name on the MIT license (currently "AmirHoseinSafari and Vibe Rails contributors")

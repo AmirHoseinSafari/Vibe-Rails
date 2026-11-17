@@ -36,6 +36,7 @@ bin/vibe-rails init /tmp/demo --name "Demo" && cd /tmp/demo && /path/to/bin/vibe
 - `templates/web-basic/` the one shipped stack. `test/fixtures/fake-stack/` is a fake stack so tests run without npm.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) how the parts fit and the state model.
 - [TODO.md](TODO.md) the ordered checklist to get from here to a public launch. **Start there**, and tick items off as they are done.
+- [docs/LAUNCH.md](docs/LAUNCH.md) the launch kit: steps to go public, where to get listed, and ready-to-paste posts. Keep its claims in line with what was measured.
 - [docs/ROADMAP.md](docs/ROADMAP.md) product features that can wait, and what is still unverified.
 
 ## Decisions made (with the owner, November 2026)

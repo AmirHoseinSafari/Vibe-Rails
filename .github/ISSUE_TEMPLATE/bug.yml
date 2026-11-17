@@ -1,0 +1,23 @@
+name: Something went wrong
+description: Vibe Rails did something unexpected, got stuck, or let something through that it should have blocked.
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: What were you doing?
+      description: In plain words. For example "I asked it to add a search box".
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: Paste the message you saw, if there was one.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: What did you expect instead?
+  - type: input
+    attributes:
+      label: Your setup
+      description: Mac or Linux, and whether you use the Claude desktop app or the terminal.

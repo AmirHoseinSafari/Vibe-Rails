@@ -1,0 +1,13 @@
+name: Idea
+description: Something that would make Vibe Rails more useful to people who are not programmers.
+labels: [idea]
+body:
+  - type: textarea
+    attributes:
+      label: What would you like to be able to do?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Why does it matter to you?
+      description: What happens today without it?
