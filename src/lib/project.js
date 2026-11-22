@@ -12,11 +12,11 @@ export const TOPICS = [
   { id: 'users', title: 'Who uses it', by: 'user', hint: 'who they are and where they use it (phone, laptop)' },
   { id: 'tasks', title: 'What people do with it', by: 'user', hint: 'each main thing a person can do, step by step' },
   { id: 'screens', title: 'What it looks like', by: 'user', hint: 'each screen and what is on it; confirm a described sketch' },
-  { id: 'data', title: 'What it remembers', by: 'user', hint: 'what information is kept, and whether it must survive closing the app' },
+  { id: 'data', title: 'What it remembers', by: 'user', hint: 'what information is kept, roughly how much (a handful, hundreds, thousands), and whether it must survive closing the app' },
   { id: 'look', title: 'Look and feel', by: 'user', hint: 'mood, colours, an app they like the look of' },
   { id: 'not_included', title: 'What is left out', by: 'user', hint: 'things that sound related but are not in the first version' },
   { id: 'done_when', title: 'How we know it is finished', by: 'user', hint: 'what the user will try to decide it works' },
-  { id: 'plan', title: 'How it will be built', by: 'assistant', hint: 'your build plan in plain words, no jargon; the user confirms it' },
+  { id: 'plan', title: 'How it will be built', by: 'assistant', hint: 'your build plan in plain words, no jargon, including the areas the app is split into so it stays easy to change as it grows; the user confirms it' },
 ];
 
 export class UserError extends Error {}

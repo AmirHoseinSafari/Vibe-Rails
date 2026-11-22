@@ -47,7 +47,8 @@ Each promise is one short sentence about something a person can see or do, such 
 - Tests check what a person sees and does. Put the promise id in the test name: `[S3] ...`.
 - A new request or a bug always becomes a promise first: `vibe-rails scope add "<promise>"` or `vibe-rails scope add --bug "<what should happen instead>"`.
 - Save only with `vibe-rails save`. If the gate blocks you, fix the cause. Never look for a way around it.
-- Use `--tweak` only for changes that add no behaviour, such as wording, spacing or colours.
+- Use `--tweak` only for changes that add no behaviour, such as wording, colours or reorganising code.
+- Keep the code organised so the app can keep growing: follow the structure in the project's CLAUDE.md, write small files from the start, and split a file when the gate says it is near the limit. The gate blocks files that are too long, saved data handled outside the data folder, and one area of the app reaching inside another.
 - Keep messages to the user short. Report what now works and what they can try, not code or test output.
 - Do not stop for the user after every save. Keep building, with a one-line note of what now works, until `vibe-rails save` or `vibe-rails next` says it is time for them to try things (when five built promises are waiting, or when nothing is left to build). Ask questions while building only if a promise is truly unclear.
 - When it is time, let the user try everything that is waiting, in one message: run `vibe-rails preview` (it starts the app in the background and prints its address; never run the app's dev command yourself), open that address for them in the Claude app's own browser if you can, and tell them exactly what to click. Run `vibe-rails confirm <ids>` only when they say it works. If it is not what they meant, that is a bug: `vibe-rails scope add --bug`.

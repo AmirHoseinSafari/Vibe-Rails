@@ -1,7 +1,7 @@
 {
   "name": "vibe-rails",
-  "version": "0.1.0",
-  "description": "Guard rails for vibe coding. A plain-language interview, a scope where every promise has a test, and a gate that blocks saving until the tests pass.",
+  "version": "0.2.0",
+  "description": "Guard rails for vibe coding. A plain-language interview, a scope where every promise has a test, a gate that blocks saving until the tests pass, and code kept organised so the app can keep growing.",
   "author": {
     "name": "AmirHoseinSafari"
   },
@@ -13,6 +13,7 @@
     "vibe-coding",
     "tdd",
     "testing",
+    "architecture",
     "non-technical",
     "workflow"
   ]

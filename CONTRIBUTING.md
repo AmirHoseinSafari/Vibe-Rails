@@ -26,8 +26,9 @@ There is nothing to install. Commits are blocked while tests fail, and the same 
 
 1. Create `templates/<name>/stack.json` and `templates/<name>/files/` (see the Stacks section of the architecture doc).
 2. Prefer a test runner that can write Jest-style JSON, so the gate can check each scope item's own tests.
-3. Include a `CLAUDE.md` in `files/` with the stack's conventions and a passing smoke test.
-4. Try it: `bin/vibe-rails init /tmp/try --template <name>` and play through one scope item.
+3. Include a `CLAUDE.md` in `files/` with the stack's conventions, how the code is organised, and a passing smoke test.
+4. Add `structure` rules to `stack.json` so apps built on it stay easy to change as they grow (see the architecture doc). The starter files must pass them; `test/cli.test.js` checks this for `web-basic`.
+5. Try it: `bin/vibe-rails init /tmp/try --template <name>` and play through one scope item.
 
 ## Adding a command
 

@@ -144,8 +144,28 @@ export function itemResult(result, id) {
   return 'skipped';
 }
 
-// The gate. Returns { ok, lines } with short, plain output.
-export function gate(result, state) {
+// The gate. Returns { ok, lines } with short, plain output. `structure` is the result of
+// checkStructure, or null for projects without structure rules. Its problems are reported
+// together with any test failures, so everything can be fixed in one go.
+export function gate(result, state, structure = null) {
+  const outcome = testGate(result, state);
+  if (!structure) return outcome;
+  if (structure.problems.length) {
+    return {
+      ok: false,
+      lines: [
+        ...(outcome.ok ? [] : outcome.lines),
+        'FAIL the code is getting hard to change as the app grows:',
+        ...structure.problems,
+        'Reorganise it (the behaviour stays the same, and the tests prove it), then save again.',
+      ],
+    };
+  }
+  if (!outcome.ok) return outcome;
+  return { ok: true, lines: [`${outcome.lines[0]} · ${structure.summary}`, ...structure.near] };
+}
+
+function testGate(result, state) {
   const lines = [];
   if (result.crashed) {
     return { ok: false, lines: ['FAIL the tests could not run:', result.tail] };

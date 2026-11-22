@@ -14,8 +14,30 @@
   "testMatch": "\\.test\\.[jt]sx?$",
   "notes": [
     "About the starter app (no need to read these files):",
-    "- src/App.tsx is one React component that shows the app's name in an <h1>. src/main.tsx mounts it; leave that as it is. There is no CSS file yet: add src/App.css and import it in App.tsx.",
-    "- src/App.test.tsx has one test, 'the app opens' (it looks for the <h1>). Keep it and add your tests to that file.",
-    "- Tests use Vitest with test and expect available everywhere, plus Testing Library: import { render, screen } from '@testing-library/react' and userEvent from '@testing-library/user-event'. Each test starts with an empty localStorage and a clean page."
-  ]
+    "- src/App.tsx shows the app's name in an <h1>. As the app grows it only lays out the screens and puts the areas together; it holds no logic of its own. src/main.tsx mounts it; leave that as it is.",
+    "- Organise the code so it stays easy to change as it grows: one folder per area of the app in src/features/<area>/ (for example plants, settings), with that area's components, logic and tests. Other code uses an area only through its src/features/<area>/index.ts. Shared small pieces go in src/ui/.",
+    "- Saved data is read and written only through src/data/ (storage.ts has load and save). Keep old saved data readable when its shape changes.",
+    "- The save gate blocks files over 200 lines, saved data handled outside src/data/, and one area reaching inside another. Write small files from the start.",
+    "- src/App.test.tsx has one test, 'the app opens'. Keep it. Put each area's tests next to its code, e.g. src/features/plants/plants.test.tsx.",
+    "- Tests use Vitest with test and expect available everywhere, plus Testing Library: import { render, screen } from '@testing-library/react' and userEvent from '@testing-library/user-event'. Each test starts with an empty localStorage and a clean page.",
+    "- There is no CSS file yet: add src/App.css and import it in App.tsx, or give an area its own CSS file."
+  ],
+  "structure": {
+    "sourceDir": "src",
+    "extensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx"
+    ],
+    "maxFileLines": 200,
+    "modules": "src/features/",
+    "storage": {
+      "pattern": "\\b(localStorage|sessionStorage|indexedDB)\\b",
+      "only": "src/data/"
+    },
+    "ignore": [
+      "src/test-setup.ts"
+    ]
+  }
 }

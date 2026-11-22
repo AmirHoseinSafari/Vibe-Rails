@@ -16,4 +16,12 @@ This project is built with Vibe Rails. The person you are working with is not te
 - Keep replies short. Do not paste test output or code to the user unless they ask.
 
 Stack: React + TypeScript + Vite, tests with Vitest and Testing Library next to the code (`src/**/*.test.tsx`).
+
+How the code is organised, so it stays easy to change as the app grows (the save gate enforces the first three):
+
+- No file over 200 lines. Write small files from the start; when one grows, split it.
+- `src/data/` is the only place that reads or writes saved data (`storage.ts` has `load` and `save`). When the shape of saved data changes, keep old data readable.
+- `src/features/<area>/` holds one area of the app (for example `plants`, `settings`): its components, logic and tests. Other code uses an area only through its `index.ts`.
+- `src/App.tsx` only lays out the screens and puts the areas together. `src/ui/` holds small shared pieces.
+- Keep logic (working things out) in plain functions, separate from components (showing things), so it can be tested and reused.
 Data lives in the browser (localStorage). Preview for the user: `vibe-rails preview` (runs in the background and prints the address). Do not run `npm run dev` yourself; it never finishes.

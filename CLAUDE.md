@@ -5,7 +5,7 @@ A Claude Code plugin that lets non-technical people build apps with the discipli
 ## Run and test
 
 ```bash
-npm test                      # 36 end-to-end tests, about 30 seconds, no install needed
+npm test                      # 43 end-to-end tests, about 30 seconds, no install needed
 bin/vibe-rails help           # the tool itself
 claude --plugin-dir .         # load this copy as a plugin in Claude Code
 ```
@@ -29,7 +29,7 @@ bin/vibe-rails init /tmp/demo --name "Demo" && cd /tmp/demo && /path/to/bin/vibe
 
 ## Where things are
 
-- `src/` the deterministic tool; `src/commands.js` has every command, `src/lib/tests.js` has the gate.
+- `src/` the deterministic tool; `src/commands.js` has every command, `src/lib/tests.js` has the gate, `src/lib/structure.js` the structure rules.
 - `src/hook.js` + `hooks/hooks.json` the Claude Code hooks.
 - `src/lib/github.js` GitHub sign-in by code and repository creation ([docs/GITHUB_APP.md](docs/GITHUB_APP.md) for the owner's one-time setup).
 - `skills/{start,feature,bug}/SKILL.md` the prompts. Keep them short; process logic belongs in `next()` in `src/commands.js`.
@@ -53,6 +53,7 @@ bin/vibe-rails init /tmp/demo --name "Demo" && cd /tmp/demo && /path/to/bin/vibe
 - **Show before build:** a clickable mock-up (`mockup/index.html`) must be approved before the plan can be.
 - **The user confirms each promise** (`confirm`); at most five may wait untried, so the AI cannot run far ahead on a wrong reading.
 - **Few stops while building** (owner decision, 2026-11-15, after the owner's own run by hand): the interview stays thorough, but during the build the AI does not check in after every promise. `save` and `next` tell it to carry on until five built promises are waiting or nothing is left, then ask the user to try them all in one message. This also costs less: every extra turn re-reads the whole conversation.
+- **Built to grow** (owner decision, 2026-11-22). The main weakness of vibe coding is that it stops scaling: everything ends up in a few huge files that each change can break. Every stack declares `structure` rules and the gate enforces them on every save and commit: files under a line limit (200 for `web-basic`), saved data only in `src/data/`, one folder per area of the app in `src/features/` used only through its index file. The starter app and its CLAUDE.md show the layout from the first line, and the gate warns at 80% of the limit so a split happens before a save is blocked.
 - **Token cost is a product requirement** (owner decision, 2026-11-15). The guarantees stay (interview, mock-up and promises each approved, a failing test before code, the gate before every save), but the flow is cut to few turns and few tool calls: interview questions come two or three topics at a time with one confirmation at the review; the plan, mock-up and promises are shown together; commands print the step that follows (`nextLines` in `src/commands.js`) so `next` is rarely called; `red` takes up to three related promises; `stack.json` `notes` describe the starter so the AI does not read it. When changing prompts or command output, count the turns and tool calls a change adds.
 - **A built promise's test is fingerprinted**; changing it needs a save that names the promise.
 - **Undo keeps promises and answers** and only throws away app files, with a backup ref.
@@ -69,6 +70,8 @@ Done and tested: the tool, both hook layers, three skills, the `web-basic` templ
 Live-tested on 2026-11-11 (headless Claude Code 2.1.322, Sonnet, Claude playing the user): skills trigger from a plain request, the full flow from interview to built promises works, and all three hook refusals reach the model. That run led to `vibe-rails preview`. To repeat it: `claude -p "<user message>" --plugin-dir . --model sonnet --permission-mode acceptEdits --allowedTools Bash Read Write Edit Glob Grep Skill --output-format stream-json --verbose`, then `--resume <session id>` for each further user turn.
 
 Cost measured on 2026-11-15 (one run each, Sonnet, Claude playing the user, a plant-watering app): the first build plus two changes cost $0.24 without the plugin, $1.45 with it before the token work and $0.76 after (8 user turns instead of 16, 41 tool calls instead of 64). Ten further changes cost $0.49 without and $1.05 with. Both final apps then passed the same 20-point checklist (19 and 20), so at this size the plugin costs about 2.5 times more and no saving from fewer breakages showed up. Do not claim it saves tokens. A larger app has not been measured.
+
+Structure rules (0.2, measured 2026-11-22, same script): the same build cost $0.77 and the ten changes $1.04, $1.81 in all, the same as 0.1. The app ended as 16 files, largest 94 lines, saved data handled in one file, against a single 463-line file in the 0.1 run and a single 289-line file without the plugin. It passed 18 of the 20 checklist points; the two misses (sort order remembered after reopening, a confirmation before delete) were never asked for in that run. So the structure costs nothing extra at this size. Whether it prevents breakage on a much larger app is still not measured; say "organised to grow", not "proven to scale".
 
 Not verified: a run by hand in the desktop app, `connect --auto` against the real GitHub (the app is registered and its Client ID is built in; GitHub accepts the code request, but nobody has signed in, created a repository or renewed a sign-in for real yet), and any run with a real non-technical user. See [TODO.md](TODO.md).
 

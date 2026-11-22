@@ -1,6 +1,6 @@
 {
   "name": "vibe-rails",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Guard rails for vibe coding: a plain-language interview, a tested scope, and a hard test gate before every save.",
   "type": "module",
   "license": "MIT",

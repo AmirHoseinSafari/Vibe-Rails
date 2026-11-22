@@ -361,6 +361,117 @@ test('save: says to keep building while more is planned, and to stop for the use
   assert.match(last.out, /Now stop and let the user try everything that is waiting, in one message[\s\S]*vibe-rails confirm S1,S2/);
 });
 
+// ---------- structure: the code stays easy to change as the app grows ----------
+
+function writeSource(dir, file, lines) {
+  const full = path.join(dir, file);
+  fs.mkdirSync(path.dirname(full), { recursive: true });
+  fs.writeFileSync(full, Array.isArray(lines) ? lines.join('\n') + '\n' : lines);
+}
+const filler = (n, word = 'line') => Array.from({ length: n }, (_, i) => `const ${word}${i} = ${i};`);
+
+// Proves S1's test fails, then makes it pass, ready for a save.
+function readyToSave(dir) {
+  setTests(dir, [{ name: '[S1] works', status: 'failed' }]);
+  assert.equal(run(dir, ['red', 'S1']).code, 0);
+  setTests(dir, [{ name: '[S1] works', status: 'passed' }]);
+}
+
+test('structure: a save is blocked while a file is too long, and goes through once it is split', () => {
+  const dir = approvedProject();
+  readyToSave(dir);
+  writeSource(dir, 'src/features/tasks/list.js', filler(31));
+  const blocked = run(dir, ['save', 'build S1', '--for', 'S1']);
+  assert.equal(blocked.code, 1);
+  assert.match(blocked.out, /src\/features\/tasks\/list\.js has 31 lines; the limit is 30/);
+  assert.match(blocked.out, /Split it into smaller files/);
+  assert.match(blocked.out, /Nothing was saved/);
+  assert.doesNotMatch(gitLog(dir), /build S1/);
+
+  writeSource(dir, 'src/features/tasks/list.js', filler(16));
+  writeSource(dir, 'src/features/tasks/item.js', filler(15, 'item'));
+  const saved = run(dir, ['save', 'build S1', '--for', 'S1']);
+  assert.equal(saved.code, 0, saved.out);
+  assert.match(saved.out, /structure: 2 files, largest 16 lines \(limit 30\)/);
+});
+
+test('structure: saved data is handled only in the data folder, and areas are used only through their front door', () => {
+  const dir = approvedProject();
+  writeSource(dir, 'src/features/plants/view.js', ["export const x = localStorage.getItem('plants');"]);
+  const direct = run(dir, ['check']);
+  assert.equal(direct.code, 1);
+  assert.match(direct.out, /src\/features\/plants\/view\.js reads or writes saved data directly \(localStorage\)\. Only files in src\/data\/ may/);
+
+  writeSource(dir, 'src/data/store.js', ["export const load = (k) => localStorage.getItem(k);"]);
+  writeSource(dir, 'src/features/plants/view.js', ['// Plants are kept in localStorage, through src/data.', "import { load } from '../../data/store.js';", "export const x = load('plants');"]);
+  writeSource(dir, 'src/features/plants/index.js', ["export { x } from './view.js';"]);
+  assert.equal(run(dir, ['check']).code, 0, 'a mention in a comment is not a use');
+
+  writeSource(dir, 'src/features/rooms/picker.js', ["import { x } from '../plants/view.js';"]);
+  const inside = run(dir, ['check']);
+  assert.equal(inside.code, 1);
+  assert.match(inside.out, /src\/features\/rooms\/picker\.js reaches inside another area \(src\/features\/plants\/view\.js\)\. Import from src\/features\/plants instead/);
+
+  for (const front of ["import { x } from '../plants';", "import { x } from '../plants/index.js';", "export * from '../plants/';"]) {
+    writeSource(dir, 'src/features/rooms/picker.js', [front]);
+    assert.equal(run(dir, ['check']).code, 0, front);
+  }
+
+  // Tests and listed set-up files may do either.
+  writeSource(dir, 'src/features/rooms/picker.test.js', ["import { x } from '../plants/view.js';", "localStorage.clear();"]);
+  writeSource(dir, 'src/setup.js', ['localStorage.clear();', ...filler(40)]);
+  assert.equal(run(dir, ['check']).code, 0);
+});
+
+test('structure: warns before a file reaches the limit, so new code goes into a new file', () => {
+  const dir = approvedProject();
+  writeSource(dir, 'src/features/tasks/list.js', filler(25));
+  const out = run(dir, ['check']);
+  assert.equal(out.code, 0, out.out);
+  assert.match(out.out, /Near the limit: src\/features\/tasks\/list\.js \(25 of 30 lines\)\. Put new code in new files/);
+});
+
+test('structure: failing tests and structure problems are reported together, so both are fixed in one go', () => {
+  const dir = approvedProject();
+  setTests(dir, [{ name: '[S1] works', status: 'failed' }]);
+  writeSource(dir, 'src/features/tasks/list.js', filler(31));
+  const out = run(dir, ['check']);
+  assert.equal(out.code, 1);
+  assert.match(out.out, /FAIL 1 of 2 tests failed[\s\S]*list\.js has 31 lines/);
+});
+
+test('structure: the git hook blocks a direct commit of a file that is too long', () => {
+  const dir = approvedProject();
+  writeSource(dir, 'src/features/tasks/list.js', filler(31));
+  spawnSync('git', ['add', '-A'], { cwd: dir });
+  const commit = spawnSync('git', ['commit', '-m', 'sneak'], { cwd: dir, encoding: 'utf8', env: ENV });
+  assert.notEqual(commit.status, 0);
+  assert.match(commit.stdout + commit.stderr, /has 31 lines/);
+});
+
+test('structure: projects made before these rules are not checked', () => {
+  const dir = approvedProject();
+  const file = path.join(dir, '.vibe-rails', 'config.json');
+  const config = JSON.parse(fs.readFileSync(file, 'utf8'));
+  delete config.structure;
+  fs.writeFileSync(file, JSON.stringify(config));
+  writeSource(dir, 'src/features/tasks/list.js', filler(31));
+  assert.equal(run(dir, ['check']).code, 0);
+});
+
+test('structure: the web app starter follows its own rules and says how to organise the code', async () => {
+  const { checkStructure } = await import('../src/lib/structure.js');
+  const web = path.resolve(here, '..', 'templates', 'web-basic');
+  const stack = JSON.parse(fs.readFileSync(path.join(web, 'stack.json'), 'utf8'));
+  assert.ok(stack.structure.maxFileLines >= 150 && stack.structure.maxFileLines <= 300);
+  const result = checkStructure(path.join(web, 'files'), stack.structure);
+  assert.deepEqual(result.problems, []);
+  assert.ok(fs.existsSync(path.join(web, 'files', 'src', 'data', 'storage.ts')));
+  const notes = fs.readFileSync(path.join(web, 'files', 'CLAUDE.md'), 'utf8');
+  assert.match(notes, /src\/features\//);
+  assert.match(notes, /src\/data\//);
+});
+
 test('save: blocked when the test of a built promise is changed in a save about something else', () => {
   const dir = approvedProject(['one', 'two']);
   const file = path.join(dir, 'one.test.js');

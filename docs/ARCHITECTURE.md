@@ -68,7 +68,8 @@ A test belongs to an item when its full name contains the id in square brackets:
 Passes only if:
 
 1. the test command succeeds and no test failed, and
-2. every `red` or `done` item has at least one test tagged with its id, and that test is not skipped.
+2. every `red` or `done` item has at least one test tagged with its id, and that test is not skipped, and
+3. the code keeps the stack's structure rules (`checkStructure()` in `src/lib/structure.js`, set under `structure` in `stack.json` and copied into the project's config at `init`): no source file over `maxFileLines`; saved data handled only under `storage.only`; and no file reaching inside another area under `modules` except through that area's index file. Test files and `ignore` paths are exempt. Structure problems are reported together with test failures so both can be fixed in one go, and a passing gate warns about files at 80% of the limit. Projects created before 0.2 have no `structure` in their config and are not checked.
 
 `planned` items do not block; they are listed as "not built yet" in every result.
 
@@ -116,9 +117,18 @@ Known gaps: the Bash check is pattern-based and can be evaded by an obscure enou
   "nodeMajor": 22,
   "commands": { "install": "...", "test": "...", "dev": "..." },
   "report": { "format": "jest-json", "file": ".vibe-rails/tmp/report.json" },
-  "testMatch": "\\.test\\.[jt]sx?$"
+  "testMatch": "\\.test\\.[jt]sx?$",
+  "structure": {
+    "sourceDir": "src", "extensions": ["ts", "tsx", "js", "jsx"], "maxFileLines": 200,
+    "modules": "src/features/",
+    "storage": { "pattern": "\\b(localStorage|sessionStorage|indexedDB)\\b", "only": "src/data/" },
+    "ignore": ["src/test-setup.ts"]
+  },
+  "notes": ["shown to the AI before the first build, so it does not need to read the starter files"]
 }
 ```
+
+`structure` is optional. Every field in it is optional too; the import rule understands JavaScript and TypeScript only.
 
 Report formats:
 

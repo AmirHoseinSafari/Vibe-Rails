@@ -11,6 +11,7 @@ import {
 import { git, hasRemote, installHooks, rememberCli } from './lib/git.js';
 import { gate, itemResult, runTests, testFingerprints } from './lib/tests.js';
 import * as github from './lib/github.js';
+import { checkStructure } from './lib/structure.js';
 
 const TEMPLATES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'templates');
 const DEFAULT_TEMPLATE = 'web-basic';
@@ -79,6 +80,7 @@ export function init({ args, flags }) {
     commands: stack.commands,
     report: stack.report,
     testMatch: stack.testMatch,
+    structure: stack.structure,
     notes: stack.notes,
   };
   writeJson(path.join(target, DIR, 'config.json'), config);
@@ -306,9 +308,11 @@ export function red({ args, flags }) {
   return 0;
 }
 
+const structureOf = (root, config) => (config.structure ? checkStructure(root, config.structure) : null);
+
 export function check() {
   const { root, config, state } = open();
-  const result = gate(runTests(root, config), state);
+  const result = gate(runTests(root, config), state, structureOf(root, config));
   say(...result.lines);
   return result.ok ? 0 : 1;
 }
@@ -322,7 +326,7 @@ export async function save({ args, flags }) {
   if (Boolean(flags.for) === Boolean(flags.tweak)) {
     throw new UserError(
       'Say what this save is for: --for <ids> (the scope items it builds or fixes), ' +
-      'or --tweak (a small change that adds no behaviour, such as wording or colours).',
+      'or --tweak (a change that adds no behaviour, such as wording, colours or reorganising code).',
     );
   }
 
@@ -332,7 +336,7 @@ export async function save({ args, flags }) {
     if (item.status === 'dropped') throw new UserError(`${item.id} was removed from the scope.`);
   }
 
-  const result = gate(runTests(root, config), state);
+  const result = gate(runTests(root, config), state, structureOf(root, config));
   if (!result.ok) {
     say(...result.lines, 'Nothing was saved.');
     return 1;
@@ -368,7 +372,7 @@ export async function save({ args, flags }) {
   const commit = git(root, ['commit', '--no-verify', '-m', message, '-m', trailer]);
   if (!commit.ok) throw new UserError(`The save failed: ${commit.err.split('\n')[0]}`);
 
-  const lines = [result.lines[0], `Saved: ${message}`];
+  const lines = [...result.lines, `Saved: ${message}`];
   if (hasRemote(root)) {
     const { problem, lapsed } = await upload(root);
     if (!problem) lines.push('Sent to GitHub.');

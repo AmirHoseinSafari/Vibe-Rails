@@ -14,5 +14,20 @@
   "testMatch": "\\.test\\.",
   "notes": [
     "About the starter: tests are listed in tests.json."
-  ]
+  ],
+  "structure": {
+    "sourceDir": "src",
+    "extensions": [
+      "js"
+    ],
+    "maxFileLines": 30,
+    "modules": "src/features/",
+    "storage": {
+      "pattern": "\\blocalStorage\\b",
+      "only": "src/data/"
+    },
+    "ignore": [
+      "src/setup.js"
+    ]
+  }
 }
